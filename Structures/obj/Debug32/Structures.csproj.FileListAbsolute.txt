@@ -1,0 +1,8 @@
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\bin\Structures.dll
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\bin\Structures.pdb
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\obj\Debug32\ResolveAssemblyReference.cache
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\obj\Debug32\Structures.Dialog.resources
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\obj\Debug32\GenerateResource.read.1.tlog
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\obj\Debug32\GenerateResource.write.1.tlog
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\obj\Debug32\Structures.dll
+C:\Users\jolsson\Documents\Visual Studio 2010\Projects\Structures\Structures\obj\Debug32\Structures.pdb

@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug32</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{9F84339B-EFF7-49C9-9311-EAED8759F017}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Structures</RootNamespace>
+    <AssemblyName>Structures</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug32|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug64|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="RhinoCommon">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files\Rhinoceros 5.0 (64-bit)\System\rhinocommon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Constraints\ConstraintPoint.cs" />
+    <Compile Include="CsvExport.cs" />
+    <Compile Include="CadInterface\Library_Emulator.cs" />
+    <Compile Include="Spring.cs" />
+    <Compile Include="Structure\Spline.cs" />
+    <Compile Include="Structure\SplineBT.cs" />
+    <Compile Include="Structure\SplineB.cs" />
+    <Compile Include="Structure\Membrane.cs" />
+    <Compile Include="Matrix\BeamMatrix.cs" />
+    <Compile Include="CadInterface\GrasshopperInterface.cs" />
+    <Compile Include="Group.cs" />
+    <Compile Include="GroupE.cs" />
+    <Compile Include="GroupN.cs" />
+    <Compile Include="Matrix\MatrixStructure.cs" />
+    <Compile Include="Structure\Node3Dof.cs" />
+    <Compile Include="Parameters.cs" />
+    <Compile Include="Structure\Plate.cs" />
+    <Compile Include="Section\RectangularSolid.cs" />
+    <Compile Include="Section\CircularHollow.cs" />
+    <Compile Include="Section\CircularSolid.cs" />
+    <Compile Include="Section\RectangularHollow.cs" />
+    <Compile Include="Section\CrossSection.cs" />
+    <Compile Include="Structure\AnalysisEngine.cs" />
+    <Compile Include="ElementMesh\ElementMesh.cs" />
+    <Compile Include="ElementMesh\Cylindrical.cs" />
+    <Compile Include="Material\Concrete.cs" />
+    <Compile Include="Structure\CoordSystem.cs" />
+    <Compile Include="CadInterface\Conduit.cs" />
+    <Compile Include="Enums.cs" />
+    <Compile Include="Geometry\GeomStructure.cs" />
+    <Compile Include="Material\Material.cs" />
+    <Compile Include="Material\Steel.cs" />
+    <Compile Include="ElementMesh\Rectangular.cs" />
+    <Compile Include="Structure\Structure.cs" />
+    <Compile Include="Structure\Cable.cs" />
+    <Compile Include="Structure\Bar.cs" />
+    <Compile Include="Structure\Beam.cs" />
+    <Compile Include="CadInterface\RhinoInterface.cs" />
+    <Compile Include="CadInterface\Dialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CadInterface\Dialog.Designer.cs">
+      <DependentUpon>Dialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Geometry\Edge.cs" />
+    <Compile Include="Geometry\Face.cs" />
+    <Compile Include="Main.cs" />
+    <Compile Include="Structure\Node6Dof.cs" />
+    <Compile Include="CadInterface\StructuresCommand.cs" />
+    <Compile Include="CadInterface\StructuresPlugIn.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Geometry\Vertex.cs" />
+    <Compile Include="Material\Timber.cs" />
+    <Compile Include="Util.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="CadInterface\Dialog.resx">
+      <DependentUpon>Dialog.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Structure\Elements\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+  <PropertyGroup>
+    <PostBuildEvent>Copy "$(TargetPath)" "$(TargetDir)$(ProjectName).rhp"</PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug32|AnyCPU' ">
+    <StartArguments>
+    </StartArguments>
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Program Files (x86)\Rhinoceros 5.0\System\Rhino4.exe</StartProgram>
+  </PropertyGroup>
+  <PropertyGroup>
+    <FallbackCulture>en-US</FallbackCulture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug64|AnyCPU'">
+    <StartProgram>C:\Program Files\Rhinoceros 5.0 (64-bit)\System\Rhino.exe</StartProgram>
+    <StartArguments>
+    </StartArguments>
+    <StartAction>Program</StartAction>
+  </PropertyGroup>
+</Project>
