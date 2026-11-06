@@ -21,6 +21,7 @@ namespace Structures
         protected Point3d _midPt;
         protected bool _isNormalUnified;
         protected double _area;
+        protected double _projArea;
         protected int _id;
 
 
@@ -133,6 +134,12 @@ namespace Structures
             set { _area = value; }
         }
 
+        public double ProjectedArea
+        {
+            get { return _projArea; }
+            set { _projArea = value; }
+        }
+
         public int ID
         {
             get { return _id; }
@@ -175,6 +182,38 @@ namespace Structures
 
             _normal.Unitize();
         }
+
+        public void CalcProjectedArea()
+        {
+            //Assuming for the moment that the projection happens to the xy plane.
+            Vector3d v1, v2, v3, v4;
+            v1 = _vertices[0].Point - _vertices[1].Point;
+            v2 = _vertices[2].Point - _vertices[1].Point;
+
+            //Performing the projection by deleting the z component.
+            v1.Z = 0;
+            v2.Z = 0;
+
+            Vector3d tempNormal = new Vector3d();
+
+            if (_vertices.Count == 3)
+            {
+                _projArea = Vector3d.CrossProduct(v1, v2).Length / 2;
+                tempNormal = Vector3d.CrossProduct(v1, v2);
+            }
+            else if (_vertices.Count == 4)
+            {
+                v3 = _vertices[0].Point - _vertices[3].Point;
+                v4 = _vertices[2].Point - _vertices[3].Point;
+                _projArea = (Vector3d.CrossProduct(v1, v2).Length / 2) + (Vector3d.CrossProduct(v3, v4).Length / 2);
+                tempNormal = Vector3d.CrossProduct(v1, v2) + Vector3d.CrossProduct(v3, v4);
+            }
+        }
+
+
+
+
+
 
         public void CalcNormal()
         {

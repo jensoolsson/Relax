@@ -12,7 +12,7 @@ using Rhino.DocObjects;
 
 namespace Structures
 {
-    static class Util
+    public static class Util
     {
         static double _tol = 0.00001;
 
@@ -702,6 +702,94 @@ namespace Structures
 
         #endregion
         //----------------------------------------------------------------------------------//
+
+
+        /** Checks if a string is numerical and if the value is within a certain extends
+* 
+*/
+        static public bool IsValidNumericalInput(string text, double min, double max)
+        {
+            double dText;
+
+            if (MyIsNumeric(text))
+            {
+                dText = double.Parse(text);
+
+                if (dText >= min && dText <= max)
+                    return true;
+                else
+                {
+                    Rhino.UI.Dialogs.ShowMessageBox("Value must not be less than " + min + " or bigger than " + max, "Error message");
+                    return false;
+                }
+            }
+            else
+            {
+                Rhino.UI.Dialogs.ShowMessageBox("Invalid input", "Error message");
+                return false;
+            }
+        }
+
+
+
+        /** Checks so that a string contains only numeric characters and maximum one dot.
+        *
+        */
+        static public bool MyIsNumeric(string str)
+        {
+            char c;
+            char c2;
+            bool result = false;
+            bool isNeg = false;
+            int nDots = 0;
+
+            c = str[0];
+
+            //To be an ok neg value the first char has to be '-' and the secound one (if there is an) har to be numeric.
+            if (str.Length > 1)
+            {
+                c2 = str[1];
+                if (c == '-' && Char.IsNumber(c2))
+                {
+                    isNeg = true;
+                }
+            }
+            else { isNeg = false; }
+
+            //If the fist char on the other hand is a '.' a zero should be added before the dot.
+            if (c == '.')
+            {
+                str = "0" + str;
+            }
+
+            //Checks so that str contains numeric values and maximum one dot.
+            for (int i = 0; i < str.Length; i++)
+            {
+                c = str[i];
+
+                if (Char.IsNumber(c))
+                {
+                    result = true;
+                }
+                else if (c == '.' && nDots == 0)
+                {
+                    result = true;
+                    nDots++;
+                }
+                else if (i == 0 && c == '-' && isNeg)
+                {
+                    result = true;
+                    isNeg = false; //Should not be abel to have more than one '-' 
+                }
+                else
+                {
+                    result = false;
+                    break;
+                }
+            }
+            return result;
+        }
+
 
     }
 }

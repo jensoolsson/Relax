@@ -10,10 +10,9 @@ using Rhino.DocObjects;
 
 namespace Structures
 {
-    public class Bar : Edge
+    public class Bar : Element
     {
         protected CoordSystem _baseCS;                      //Initial coordinate system for the bar. 
-        protected CrossSection _crossSection;               //Cross section
         protected Material _material;                       //Material
         protected double[] _f;                              //Axial force vector
         protected double _N;                                //Magnitude of the force
@@ -24,21 +23,20 @@ namespace Structures
         protected double _sl_Global_SF;                     //Slack length global scale factor.
         protected double _sl_Custom_SF;                     //Slack length custom scale factor.
         protected eOrientation _orientation;                //Cross section orientation
-        protected bool _isMeshBuilt;                        //boolean saying wethear or not mesh is built
         protected double[] _loadFromMass;                   //Load caused by the weight of the beam, should be divided by 2 when applied to nodes.
         protected double[] _loadFromSurface;                //Load from surface, can be either derived from a line or an area load.
-        protected double[] _colorBy;                        //visValue is a container for a value that will be visualized. 
-
+        
         protected double[] _transStiffness;                 //
         protected double _nts_Sf;                           //Node translational stiffness scale factor, smaller value means lowerd stiffness => faster convergence.
 
         protected double _prevCSSF;                         //Previous section scale factor                         
         protected double _CSSF;                             //Cross section scale factor
 
+
+
         new public void Initialise()
         {
             _baseCS = new CoordSystem();
-            _crossSection = new CircularHollow();
             _material = new Steel();
             _f = new double[3];
             _N = 0;
@@ -49,12 +47,8 @@ namespace Structures
             _sl_Global_SF = 1;
             _sl_Custom_SF = 1;
             _orientation = eOrientation.normal;
-            _isMeshBuilt = false;
             _loadFromMass = new double[3] { 0, 0, 0 };
             _loadFromSurface = new double[3] { 0, 0, 0 };
-            _colorBy = new double[2];
-
-
             _transStiffness = new double[] { 0, 0, 0 };
             _nts_Sf = 0.1;
 
@@ -80,9 +74,11 @@ namespace Structures
             Initialise();
         }
 
-        public Bar(Node3Dof nodeStart, Node3Dof nodeEnd) : base((Vertex)nodeStart, (Vertex)nodeEnd)
+        public Bar(Node3Dof nodeStart, Node3Dof nodeEnd) : base(nodeStart, nodeEnd)
         {
             Initialise();
+
+            _crossSection = new CircularHollow();
         }
 
         #endregion
@@ -133,12 +129,6 @@ namespace Structures
             set { _material = value; }
         }
 
-        public bool IsMeshBuilt
-        {
-            get { return _isMeshBuilt; }
-            set { _isMeshBuilt = value; }
-        }
-
         public double Mass
         {
             get { return _m; }
@@ -169,19 +159,13 @@ namespace Structures
             set { _baseCS = value; }
         }
 
-        public double[] ColorBy
-        {
-            get { return _colorBy; }
-            set { _colorBy = value; }
-        }
-
-        public double[] NodeTransStiffness 
+        public double[] TransStiffness 
         {
             get { return _transStiffness; }
             set { _transStiffness = value; }
         }
 
-        public double NodeStiffnessScaleFactor 
+        public double TransStiffnessScaleFactor 
         {
             get { return _nts_Sf; }
             set { _nts_Sf = value; }
@@ -202,7 +186,7 @@ namespace Structures
         //and twisting happens around the z-axis. 
 
 
-        public virtual void InitialiseCoordSystem() 
+        public override void InitialiseCoordSystem() 
         {
             if (_orientation == eOrientation.vertical)
                 InitialiseVerticalCoordSystem();
@@ -210,7 +194,7 @@ namespace Structures
                 InitialiseNormalCoordSystem();
         }
 
-        public virtual void InitialiseVerticalCoordSystem() 
+        public override void InitialiseVerticalCoordSystem() 
         {
             Vector3d zVec = _vertices[1].Point - _vertices[0].Point;
             Vector3d temp = new Vector3d(0, 0, 1);
@@ -229,7 +213,7 @@ namespace Structures
             _baseCS.UnitizeVectors();
         }
 
-        public virtual void InitialiseNormalCoordSystem()
+        public override void InitialiseNormalCoordSystem()
         {
             Vector3d avrgNormal = (_vertices[0].Normal + _vertices[1].Normal) / 2;
             avrgNormal.Unitize();
@@ -245,9 +229,11 @@ namespace Structures
             _baseCS.UnitizeVectors();
         }
 
-        public virtual void CalcInitialTwist() { }
+        public override void CalcInitialTwist()
+        {
+        }
 
-        public virtual void InitialiseMesh() 
+        public override void InitialiseMesh() 
         {
             _crossSection.BuildMesh(this);
             _isMeshBuilt = true;
@@ -256,7 +242,7 @@ namespace Structures
         /** Calculate this bars contribution to axial stiffness
         * 
         */
-        public virtual void CalcNodeStiffness()
+        public override void CalcNodeStiffness()
         {
             CalcNodeTransStiffness();
         }
@@ -277,18 +263,18 @@ namespace Structures
             _transStiffness[2] = Math.Abs((1 / iL) * (E * A * p.Z));
         }
 
-        public virtual void ApplyNodeStiffness() 
+        public override void ApplyNodeStiffness() 
         {
-            GetStart().TranslationalStiffness[0] += _nts_Sf * _transStiffness[0];
-            GetStart().TranslationalStiffness[1] += _nts_Sf * _transStiffness[1];
-            GetStart().TranslationalStiffness[2] += _nts_Sf * _transStiffness[2];
+            GetStart().TranslationalStiffness[0] += _transStiffness[0];
+            GetStart().TranslationalStiffness[1] += _transStiffness[1];
+            GetStart().TranslationalStiffness[2] += _transStiffness[2];
 
-            GetEnd().TranslationalStiffness[0] += _nts_Sf * _transStiffness[0];
-            GetEnd().TranslationalStiffness[1] += _nts_Sf * _transStiffness[1];
-            GetEnd().TranslationalStiffness[2] += _nts_Sf * _transStiffness[2];
+            GetEnd().TranslationalStiffness[0] += _transStiffness[0];
+            GetEnd().TranslationalStiffness[1] += _transStiffness[1];
+            GetEnd().TranslationalStiffness[2] += _transStiffness[2];
         }
 
-
+        
 
 
         #endregion
@@ -302,22 +288,22 @@ namespace Structures
         /** Calculate element deformation, which for a bar is only axial. 
         * 
         */
-        public virtual void CalcDeformation()
+        public override void CalcDeformation()
         {
             CalcElongation();
         }
 
-        public virtual void CalcStrain()
+        public override void CalcStrain()
         {
             CalcAxialForce();
         }
 
-        public virtual void ApplyStrainToNodes() 
+        public override void ApplyStrainToNodes() 
         {
             ApplyForceToNodes();
         }
 
-        public virtual void CalcElongation()
+        public override void CalcElongation()
         {
             double iL = _sl_Custom_SF * _sl_Global_SF * _initLength;
 
@@ -325,12 +311,17 @@ namespace Structures
             _ea = (Math.Pow(_length, 2) - Math.Pow(iL, 2)) / (2 * iL);
         }
 
-        public virtual void ClearForce() {}
+        public override void ClearForce()
+        {
+            _f[0] = 0;
+            _f[1] = 0;
+            _f[2] = 0;
+        }
 
         /** Calculate axial force 
         * 
         */
-        public virtual void CalcAxialForce()
+        public override void CalcAxialForce()
         {
             double iL = _sl_Custom_SF * _sl_Global_SF * _initLength;
             _N = (_sfEA * _material.YoungsModulus * _crossSection.Area / _initLength) * (_ea);
@@ -346,7 +337,7 @@ namespace Structures
             _N += _preStress;
         }
 
-        public virtual void ApplyForceToNodes() 
+        public override void ApplyForceToNodes() 
         {
             Vector3d p = _vertices[1].Point - _vertices[0].Point;
             double[] _nForce = new double[3];
@@ -361,7 +352,7 @@ namespace Structures
             GetEnd().ForceAdd(-_nForce[0], -_nForce[1], -_nForce[2]);
         }
 
-        public virtual void ApplyReleases()
+        public override void ApplyReleases()
         {
             //Yet to implemented
         }
@@ -370,7 +361,7 @@ namespace Structures
         /** Sizing, not accounting for buckling.  
         * 
         */
-        public virtual void DirectSizing() 
+        public override void DirectSizing() 
         {
             //Calculating scale factor but only changing to 10 % of the differance between
             //current and previous scale factor. 
@@ -405,7 +396,7 @@ namespace Structures
             sFac = _N / (A * yLim);
         }
 
-        public virtual void IncrementalSizing() 
+        public override void IncrementalSizing() 
         {
         
         }
@@ -423,34 +414,23 @@ namespace Structures
         /** Calculate the mass for the beam. 
         * 
         */
-        public virtual void CalcMass()
+        public override void CalcMass()
         {
             _m = _initLength * _crossSection.Area * _material.Density;
         }
 
-        public virtual void CalcPointLoadFromSurface(Vector3d loadDir, double magnitude)
+        public override void CalcPointLoadFromSurface(Vector3d loadDir, double load)
         {
             loadDir.Unitize();
 
-            _loadFromSurface[0] = magnitude * loadDir.X;
-            _loadFromSurface[1] = magnitude * loadDir.Y;
-            _loadFromSurface[2] = magnitude * loadDir.Z;
+            _loadFromSurface[0] = load * loadDir.X;
+            _loadFromSurface[1] = load * loadDir.Y;
+            _loadFromSurface[2] = load * loadDir.Z;
         }
 
-        public virtual void CalcLineLoadFromSurface(double projLength, Vector3d loadDir, double loadPerMeter)
+        public override void CalcLineLoadFromSurface(Vector3d loadDir, double loadPerMeter)
         {
-            double val = loadPerMeter * projLength;
-
-            loadDir.Unitize();
-
-            _loadFromSurface[0] = val * loadDir.X;
-            _loadFromSurface[1] = val * loadDir.Y;
-            _loadFromSurface[2] = val * loadDir.Z;
-        }
-
-        public virtual void CalcAreaLoadFromSurface(double area, Vector3d loadDir, double loadPerSquareMeter)
-        {
-            double val = area * loadPerSquareMeter;
+            double val = _projLength * loadPerMeter;
 
             loadDir.Unitize();
 
@@ -459,10 +439,21 @@ namespace Structures
             _loadFromSurface[2] = val * loadDir.Z;
         }
 
-        /** Calculate load from mass, (load divided in x,y,z componets for a generic gravity direction)
+        public override void CalcAreaLoadFromSurface(Vector3d loadDir, double loadPerSquareMeter)
+        {
+            double val = _projArea * loadPerSquareMeter;
+
+            loadDir.Unitize();
+
+            _loadFromSurface[0] = val * loadDir.X;
+            _loadFromSurface[1] = val * loadDir.Y;
+            _loadFromSurface[2] = val * loadDir.Z;
+        }
+
+        /** Calculate load from mass, (load divided in x,y,z componets for a generic gravity direction), load is different from mass in the sence that it allows for scaling.
         * 
         */
-        public virtual void CalcLoadFromMass(Vector3d dirVec, double gravity, eLoadType loadType)
+        public override void CalcLoadFromMass(Vector3d dirVec, double gravity, eLoadType loadType)
         {
             double val = _m * gravity;
 
@@ -474,22 +465,20 @@ namespace Structures
         /** Calculate load from surface 
         * 
         */
-        public virtual void CalcLoadFromSurface(Vector3d dirVec, double magnitude, eLoadType loadType)
+        public override void CalcLoadFromSurface(Vector3d dirVec, double magnitude, eLoadType loadType)
         {
             if(loadType == eLoadType.PointLoad)
                 CalcPointLoadFromSurface(dirVec, magnitude);
-
-            //else if(loadType == eLoadType.LineLoad)
-                //CalcLineLoadFromSurface();
-
-            //else if(loadType == eLoadType.AreaLoad)
-                //CalcAreaLoadFromSurface();
+            else if(loadType == eLoadType.LineLoad)
+                CalcLineLoadFromSurface(dirVec, magnitude);
+            else if(loadType == eLoadType.AreaLoad)
+                CalcAreaLoadFromSurface(dirVec, magnitude);
         }
 
         /** Add calculated load from mass to the nodes. Half of the load on each node. 
         * 
         */
-        public virtual void ApplyLoadFromMass()
+        public override void ApplyLoadFromMass()
         {
             GetEnd().LoadFromMass[0] += _loadFromMass[0] / 2.0;
             GetEnd().LoadFromMass[1] += _loadFromMass[1] / 2.0;
@@ -500,7 +489,7 @@ namespace Structures
             GetStart().LoadFromMass[2] += _loadFromMass[2] / 2.0;
         }
 
-        public virtual void ApplyLoadFromSurface()
+        public override void ApplyLoadFromSurface()
         {
             GetEnd().LoadFromSurface[0] += _loadFromSurface[0] / 2.0;
             GetEnd().LoadFromSurface[1] += _loadFromSurface[1] / 2.0;
@@ -522,7 +511,7 @@ namespace Structures
         /** Color the mesh for the beam element. 
         * 
         */
-        public virtual void ColorMesh(double realMin, double realMax, double showMin, double showMax)
+        public override void ColorMesh(double realMin, double realMax, double showMin, double showMax)
         {
             _crossSection.ColorMesh(this, realMin, realMax, showMin, showMax);
         }
@@ -530,7 +519,7 @@ namespace Structures
         /** Build the mesh for the beam element. 
         * 
         */
-        public virtual void BuildMesh()
+        public override void BuildMesh()
         {
             _crossSection.BuildMesh(this);
             _isMeshBuilt = true;
@@ -539,7 +528,7 @@ namespace Structures
         /** Calculate the section properties. 
         * 
         */
-        public virtual void CalcSectionProperties()
+        public override void CalcSectionProperties()
         {
             _crossSection.CalcSectionProperties();
         }
@@ -550,11 +539,6 @@ namespace Structures
         public void ScaleSection(double sf)
         {
             _crossSection.Scale(sf);
-        }
-
-        public Mesh GetMesh() 
-        {
-            return _crossSection.GetMesh();
         }
 
 
@@ -583,10 +567,15 @@ namespace Structures
             _f[2] = 0;
             _N = 0;
         }
-
+        
         public override void Rewind() 
         {
             base.Rewind();
+            ClearAxialForce();
+            ClearCoodinateSystem();
+
+            _crossSection.Rewind();
+
             InitialiseCoordSystem();
         } 
 
@@ -597,17 +586,17 @@ namespace Structures
         //--------------------------------- PostProcess ------------------------------------//
         #region
 
-        public virtual void PostProcess() 
+        public override void PostProcess() 
         {
         
         }
 
-        public virtual double GetConvergForce() 
+        public override void CalcConvergForce() 
         {
             double lfm = Math.Sqrt(Math.Pow(_loadFromMass[0], 2) + Math.Pow(_loadFromMass[1], 2) + Math.Pow(_loadFromMass[2], 2));
             double lfs = Math.Sqrt(Math.Pow(_loadFromSurface[0], 2) + Math.Pow(_loadFromSurface[1], 2) + Math.Pow(_loadFromSurface[2], 2));
-            
-            return lfm + lfs;
+
+            _convergeForce = lfm + lfs;
         }
 
         #endregion

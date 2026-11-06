@@ -34,8 +34,8 @@ namespace Structures
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
             /* Run with UI */
-            Dialog dlg = new Dialog();
-            dlg.Show();
+            //Dialog dlg = new Dialog();
+            //dlg.Show();
 
             /* Run as library */
             //Library_Emulator le = new Library_Emulator();

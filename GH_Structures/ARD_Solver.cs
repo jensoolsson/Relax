@@ -79,7 +79,7 @@ namespace GH_Structures
 
             if (enabled) 
             {
-                _mainSolver.RunDR_GH();
+                //_mainSolver.RunDR_GH();
 
                 _mainSolver.Structure.BuildMesh();
 

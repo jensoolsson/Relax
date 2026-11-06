@@ -26,9 +26,18 @@ namespace Structures
         protected bool _drawVertexID;
         protected bool _drawEdgeID;
         protected bool _drawFaceID;
-        protected bool _drawDebug;
+        protected bool _drawUtilisation;
         protected bool _drawNodeCS;
         protected bool _drawBarCS;
+        protected bool _drawNodeMass;
+        protected bool _drawNodeLoad;
+        protected bool _drawLoadArrows;
+
+        protected bool _drawNodeTS;
+        protected bool _drawNodeRS;
+        protected bool _drawElementTS;
+        protected bool _drawElementRS;
+        
 
         protected eColorBy _colorBy;
         protected double _showMin;
@@ -45,6 +54,11 @@ namespace Structures
         protected eSizingMode _sizingMode;
         protected eElementType _elemType;
         protected double _loadSF;
+        protected eBeamMode _beamMode;
+        protected bool _modeControl;
+
+        protected double _axialSF;                    //Scale factor between 1-100 %
+        protected double _bendingSF;                  //Scale factor between 1-100 %
 
         protected double _dt;                         //Time step
         protected double _vd;                         //Viscous damping
@@ -60,9 +74,12 @@ namespace Structures
         protected double _realMin;
         protected double _realMax;
 
+        protected double _transStiffSF;
+        protected double _rotStiffSF;
+
         protected int _nrIterations;
 
-        public void Initialise() 
+        public void Initialise()
         {
             _drawVertexNormals = false;
             _drawFaceNormals = false;
@@ -70,30 +87,37 @@ namespace Structures
             _drawLines = false;
             _drawMeshWires = false;
             _drawMeshShades = false;
-            _draw3dBars = false;
+            _draw3dBars = true;
 
             _drawVertexID = false;
             _drawEdgeID = false;
             _drawFaceID = false;
-            _drawDebug = false;
+            _drawUtilisation = false;
+            _drawNodeMass = false;
+            _drawNodeLoad = false;
 
             _colorBy = eColorBy.Utilisation;
             _showMin = 0;
-            _showMax = 100; 
+            _showMax = 100;
 
             _isSelfWeight = true;
             _isSurfaceLoad = true;
-            _loadType = eLoadType.PointLoad;
+            _loadType = eLoadType.AreaLoad;
             _gravityVector = new Vector3d(0, 0, -1);
             _gravityMag = 9.81;
             _srfLoadVector = new Vector3d(0, 0, -1);
             _srfLoadMag = 0;
             _sizingMode = eSizingMode.Direct;
             _dt = 0.01;
-            _vd = 0.95;
+            _vd = 0.98;
             _tol = 0.00001;
             _elemType = eElementType.Beam;
             _loadSF = 1;
+            _beamMode = eBeamMode.PropertyControl;
+            _modeControl = false;
+
+            _axialSF = 1;
+            _bendingSF = 1;
 
             _obf = 0;
             _obm = 0;
@@ -101,15 +125,18 @@ namespace Structures
             _strucWeight = 0;
             _drCounter = 0;
             _sizingCounter = 0;
-
             _nrIterations = 10;
-            
+
+
+            _transStiffSF = 1;
+            _rotStiffSF = 10;
+
         }
 
         //----------------------------------------------------------------------------------//
         #region
 
-        public Parameters() 
+        public Parameters()
         {
             Initialise();
         }
@@ -121,7 +148,25 @@ namespace Structures
         //--------------------------- Visualisation parameters -----------------------------//
         #region
 
-        public bool DrawVertexNormals 
+        public bool DrawLoadArrows
+        {
+            get { return _drawLoadArrows; }
+            set { _drawLoadArrows = value; }
+        }
+
+        public bool DrawNodeLoad
+        {
+            get { return _drawNodeLoad; }
+            set { _drawNodeLoad = value; }
+        }
+
+        public bool DrawNodeMass
+        {
+            get { return _drawNodeMass; }
+            set { _drawNodeMass = value; }
+        }
+
+        public bool DrawVertexNormals
         {
             get { return _drawVertexNormals; }
             set { _drawVertexNormals = value; }
@@ -163,13 +208,13 @@ namespace Structures
             set { _draw3dBars = value; }
         }
 
-        public bool DrawNodeRing 
+        public bool DrawNodeRing
         {
             get { return _drawNodeRing; }
             set { _drawNodeRing = value; }
         }
 
-        public bool DrawNodeCS 
+        public bool DrawNodeCS
         {
             get { return _drawNodeCS; }
             set { _drawNodeCS = value; }
@@ -181,7 +226,7 @@ namespace Structures
             set { _drawBarCS = value; }
         }
 
-        public bool DrawVertexID 
+        public bool DrawVertexID
         {
             get { return _drawVertexID; }
             set { _drawVertexID = value; }
@@ -199,13 +244,13 @@ namespace Structures
             set { _drawFaceID = value; }
         }
 
-        public bool DrawDebug
+        public bool DrawUtilisation
         {
-            get { return _drawDebug; }
-            set { _drawDebug = value; }
+            get { return _drawUtilisation; }
+            set { _drawUtilisation = value; }
         }
 
-        public eColorBy ColorBy 
+        public eColorBy ColorBy
         {
             get { return _colorBy; }
             set { _colorBy = value; }
@@ -231,10 +276,10 @@ namespace Structures
         //------------------------------ Analysis parameters -------------------------------//
         #region
 
-        public bool IsSelfWeight 
-        { 
-            get{ return _isSelfWeight; } 
-            set{ _isSelfWeight = value; }
+        public bool IsSelfWeight
+        {
+            get { return _isSelfWeight; }
+            set { _isSelfWeight = value; }
         }
 
         public bool IsSurfaceLoad
@@ -279,7 +324,7 @@ namespace Structures
             set { _sizingMode = value; }
         }
 
-        public double TimeStep 
+        public double TimeStep
         {
             get { return _dt; }
             set { _dt = value; }
@@ -297,7 +342,7 @@ namespace Structures
             set { _tol = value; }
         }
 
-        public eElementType ElementType 
+        public eElementType ElementType
         {
             get { return _elemType; }
             set { _elemType = value; }
@@ -308,6 +353,68 @@ namespace Structures
             get { return _loadSF; }
             set { _loadSF = value; }
         }
+
+        public eBeamMode BeamMode
+        {
+            get { return _beamMode; }
+            set { _beamMode = value; }
+        }
+
+        public double AxialSF
+        {
+            get { return _axialSF; }
+            set { _axialSF = value; }
+        }
+
+        public double BendingSF
+        {
+            get { return _bendingSF; }
+            set { _bendingSF = value; }
+        }
+
+        public bool ModeControl
+        {
+            get { return _modeControl; }
+            set { _modeControl = value; }
+        }
+
+        public double TranslationalStiffnessScaleFactor
+        {
+            get { return _transStiffSF; }
+            set { _transStiffSF = value; }
+        }
+
+        public double RotationalStiffnessScaleFactor
+        {
+            get { return _rotStiffSF; }
+            set { _rotStiffSF = value; }
+        }
+
+        public bool DrawNodeTS
+        {
+            get { return _drawNodeTS; }
+            set { _drawNodeTS = value; }
+        }
+
+        public bool DrawNodeRS
+        {
+            get { return _drawNodeRS; }
+            set { _drawNodeRS = value; }
+        }
+
+        public bool DrawElementTS
+        {
+            get { return _drawElementTS; }
+            set { _drawElementTS = value; }
+        }
+
+        public bool DrawElementRS
+        {
+            get { return _drawElementRS; }
+            set { _drawElementRS = value; }
+        }
+
+
 
         #endregion
         //----------------------------------------------------------------------------------//

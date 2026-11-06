@@ -17,6 +17,9 @@ namespace Structures
         protected double _structWeight;           //Total weight of the structure 
         protected List<ConstraintPoint> _consPts;
 
+        protected double _maxNodeLoad;
+        protected double _minNodeLoad;
+
         protected bool _isAnalysable;
 
         public new void Initialise()
@@ -113,6 +116,11 @@ namespace Structures
         //--------------------------------- Properties -------------------------------------//
         #region
 
+        public List<Element> GetElements()
+        {
+            return Util.CastToSubclass<Element, Edge>(_edges);
+        }
+
         public List<Bar> GetBars()
         {
             return Util.CastToSubclass<Bar, Edge>(_edges);
@@ -138,6 +146,11 @@ namespace Structures
             return Util.CastToSubclass<Plate, Face>(_faces);
         }
 
+        public List<Node> GetNodes()
+        {
+            return Util.CastToSubclass<Node, Vertex>(_vertices);
+        }
+
         public List<Node3Dof> GetNode3dofs()
         {
             return Util.CastToSubclass<Node3Dof, Vertex>(_vertices);
@@ -160,10 +173,21 @@ namespace Structures
             set { _isAnalysable = value; }
         }
 
+        public double MaxNodeLoad
+        {
+            get { return _maxNodeLoad; }
+            set { _maxNodeLoad = value; }
+        }
+
+        public double MinNodeLoad
+        {
+            get { return _minNodeLoad; }
+            set { _minNodeLoad = value; }
+        }
 
         #endregion
         //----------------------------------------------------------------------------------//
-     
+
 
         //------------------------------ Creating objects ----------------------------------//
         #region
@@ -312,7 +336,7 @@ namespace Structures
         public void CreateBarsFromLines(List<RhinoObject> selLine)
         {
             List<Node3Dof> nodes = new List<Node3Dof>();
-            List<Bar> bendSplines = new List<Bar>();
+            List<Bar> bars = new List<Bar>();
             int nodeCounter = 0;
             for (int i = 0; i < selLine.Count; i++)
             {
@@ -348,10 +372,10 @@ namespace Structures
                 c.ID = i;
                 ns.AddEdge(c);
                 ne.AddEdge(c);
-                bendSplines.Add(c);
+                bars.Add(c);
             }
             _vertices.AddRange(Util.CastToSuperclass<Vertex, Node3Dof>(nodes));
-            _edges.AddRange(Util.CastToSuperclass<Edge, Bar>(bendSplines));
+            _edges.AddRange(Util.CastToSuperclass<Edge, Bar>(bars));
         }
         
         /* Bend-Splines */
@@ -636,7 +660,7 @@ namespace Structures
 
         public void AssignConstPtsToVertices()
         {
-            foreach (Node3Dof n in GetNode3dofs())
+            foreach (Node n in GetNodes())
             {
                 foreach (ConstraintPoint cp in _consPts)
                 {
@@ -784,28 +808,22 @@ namespace Structures
         //---------------------------- Initial Calculations --------------------------------//
         #region
 
-        public void Preprocess_GH() 
-        {
-            AssignConstPtsToVertices();
-
-            PreprocessGeometry1();
-
-            CreateFacesFromEdges();
-
-            PreprocessGeometry2();
-        }
 
         public void PreprocessStructure(Parameters p)
         {
             InitialiseCoordinateSystems();
 
-            InitialiseNodeAndBeamProperties(p);
+            InitialiseNodeAndElementProperties(p);
 
             CalcMass(p);
 
-            CalcLoad(p);
+            CalcLoadFromMass(p);
+
+            CalcLoadFromSurface(p);
 
             ApplyLoad(p);
+
+            CalcMaxMinLoadPerNode();
 
             CalcTotalStructuralWeight();
 
@@ -814,17 +832,6 @@ namespace Structures
             _isDarwable = true;
 
             _isAnalysable = true;
-        }
-
-        public void Update_GH(Parameters p) 
-        {
-            CalcMass(p);
-
-            CalcLoad(p);
-
-            ApplyLoad(p);
-
-            CalcTotalStructuralWeight();
         }
 
 
@@ -839,24 +846,24 @@ namespace Structures
 
         private void InitialiseCoordinateSystems()
         {
-            foreach (Node3Dof n in GetNode3dofs())
+            foreach (Node n in GetNodes())
                 n.InitialiseCoordSystem();
             
-            foreach (Bar b in GetBars())
-                b.InitialiseCoordSystem();
+            foreach (Element e in GetElements())
+                e.InitialiseCoordSystem();
         }
 
-        private void InitialiseNodeAndBeamProperties(Parameters p)
+        private void InitialiseNodeAndElementProperties(Parameters p)
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
-                b.CalcInitialTwist();
-                b.CalcSectionProperties();
-                b.InitialiseMesh();
+                e.CalcInitialTwist();
+                e.CalcSectionProperties();
+                e.InitialiseMesh();
             }
-            foreach (Node3Dof n in GetNode3dofs())
+            foreach (Node n in GetNodes())
             {
-                n.CalcFictiousMass(p.TimeStep);
+                n.CalcFictiousMass(p.TimeStep, p.TranslationalStiffnessScaleFactor, p.RotationalStiffnessScaleFactor);
                 n.CalcStabilityLimit();
             }
         }
@@ -873,42 +880,40 @@ namespace Structures
         */
         public void CalcMass(Parameters p)
         {
-            foreach (Bar b in GetBars())
-                b.CalcMass();
+            foreach (Element e in GetElements())
+                e.CalcMass();
         }
 
-        public void CalcLoad(Parameters p)
+        public void CalcLoadFromMass(Parameters p)
         {
-            foreach (Bar b in GetBars())
-            {
+            foreach (Element e in GetElements())
                 if (p.IsSelfWeight)
-                    b.CalcLoadFromMass(p.GravityVector, p.GravityMagnitude, p.LoadType);
+                    e.CalcLoadFromMass(p.GravityVector, p.GravityMagnitude, p.LoadType);
+        }
 
+        public void CalcLoadFromSurface(Parameters p)
+        {
+            foreach (Element e in GetElements())
                 if (p.IsSurfaceLoad)
-                    b.CalcLoadFromSurface(p.SurfaceLoadVector, p.SurfaceLoadMagnitude, p.LoadType);
-            }
+                    e.CalcLoadFromSurface(p.SurfaceLoadVector, 1, p.LoadType);   //Setting the magnitude to be one, such that when the application happens the load can be scaled with a magnitude SF.
         }
 
         public void ApplyLoad(Parameters p)
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
                 if (p.IsSelfWeight)
-                    b.ApplyLoadFromMass();
+                    e.ApplyLoadFromMass();
 
                 if (p.IsSurfaceLoad)
-                    b.ApplyLoadFromSurface();
+                    e.ApplyLoadFromSurface();
             }
         }
 
         public void ClearNodeLoad() 
         {
-            foreach (Node3Dof n in GetNode3dofs())
-            {
-                n.ClearLoadFromMass();
-                n.ClearLoadFromSurface();
-                n.ClearSplineBarForce();
-            }
+            foreach (Node n in GetNodes())
+                n.ClearLoad();
         }
 
         /** Relaxation
@@ -916,49 +921,89 @@ namespace Structures
         */
         public void ResetForcesMoments() 
         {
-            foreach (Node3Dof n in GetNode3dofs())
+            foreach (Node n in GetNodes())
                 n.Clear();
         }
 
         public void CalcFictiousMass(Parameters p) 
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
-                b.CalcNodeStiffness();
-                b.ApplyNodeStiffness();
+                e.CalcNodeStiffness();
+                e.ApplyNodeStiffness();
             }
-            foreach (Node3Dof n in GetNode3dofs())
-                n.CalcFictiousMass(p.TimeStep);
+            foreach (Node n in GetNodes())
+                n.CalcFictiousMass(p.TimeStep, p.TranslationalStiffnessScaleFactor, p.RotationalStiffnessScaleFactor);
         }
 
         public void CalcStrain(Parameters p) 
         {
-            foreach(Bar b in GetBars())
-                b.ClearForce();
+            foreach(Element e in GetElements())
+                e.ClearForce();
 
-            foreach (Bar b in GetBars()) 
+            foreach (Element e in GetElements()) 
             {
-                b.CalcLength();
-
-                b.CalcDeformation();
-
-                b.CalcStrain();
+                e.CalcLength();
+                e.CalcDeformation();
+                e.CalcStrain();
             }
         }
 
+        /** Calculate forces and moments in beams.
+        *
+        */
+        public void CalcForceAndMoments(Parameters p)
+        {
+            foreach (Element e in GetElements())
+                e.ClearForce();
+
+            foreach (Beam b in GetBeams())
+            {
+                //Calculate the beam length due to the moved nodes in the last iteration
+                b.CalcLength();
+                b.CalcDeformation();
+
+                b.ScaleFactorEA = 1;
+                b.ScaleFactorEI = 1;
+
+                //ELASTIC
+                if (p.BeamMode == eBeamMode.PropertyControl)
+                {
+                    b.ScaleFactorEA = p.AxialSF;
+                    b.ScaleFactorEI = p.BendingSF;
+                }
+
+                b.CalcAxialForce();
+                b.CalcMoment();
+
+                //PLASTIC
+                if (p.BeamMode == eBeamMode.LimitControl)
+                {
+                    b.ScaleMomentAndForcePlastic(p.AxialSF, p.BendingSF);
+                }
+                //FORCE/MOMENT
+                else if (p.BeamMode == eBeamMode.ForceMomentControl)
+                {
+                    b.ScaleMomentAndForce(p.AxialSF, p.BendingSF);
+                }
+            }
+        }
+
+
+
         public void ApplyStrainToNodes() 
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
-                b.ApplyStrainToNodes();
+                e.ApplyStrainToNodes();
             }
         }
 
         public void TransformNodes(Parameters p) 
         {
-            foreach (Node3Dof n in GetNode3dofs())
+            foreach (Node3Dof n in GetNodes())
             {
-                n.TransformDueToStrain(p.TimeStep, p.ViscousDamping, p.LoadScaleFactor);
+                n.TransformDueToStrain(p.TimeStep, p.ViscousDamping, p.LoadScaleFactor, p.IsSelfWeight, p.SurfaceLoadMagnitude);
             }
         }
 
@@ -967,20 +1012,61 @@ namespace Structures
         */
         public void Sizing(Parameters p)
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
                 if (p.SizingMode == eSizingMode.Direct)
-                    b.DirectSizing();
+                    e.DirectSizing();
                 else
-                    b.IncrementalSizing();
+                    e.IncrementalSizing();
             }
         }
 
+        
+        
         public void CalcCrossSectionProperties() 
         {
-            foreach (Bar b in GetBars()) 
-                b.CalcSectionProperties();
+            foreach (Element e in GetElements()) 
+                e.CalcSectionProperties();
         }
+
+
+
+        public void CalcMaxMinLoadPerNode()
+        {
+            double maxLoadPerNode = 0;
+            double minLoadPerNode = 0;
+
+            foreach (Node3Dof n in GetNode3dofs())
+            {
+                double[] loadM = n.LoadFromMass;
+                double[] loadS = n.LoadFromSurface;
+                double[] load = new double[3] { 0, 0, 0 };
+
+                load[0] = loadM[0] + loadS[0];
+                load[1] = loadM[1] + loadS[1];
+                load[2] = loadM[2] + loadS[2];
+
+                double loadMag = Math.Sqrt(load[0] * load[0] + load[1] * load[1] + load[2] * load[2]);
+
+                if (loadMag > maxLoadPerNode)
+                    maxLoadPerNode = loadMag;
+
+                if (loadMag < minLoadPerNode)
+                    minLoadPerNode = loadMag;
+            }
+            _maxNodeLoad = maxLoadPerNode;
+            _minNodeLoad = minLoadPerNode;
+        }
+
+
+
+
+
+
+
+
+
+
 
 
         #endregion
@@ -1003,7 +1089,10 @@ namespace Structures
 
         public void Rewind() 
         {
-            foreach (Node3Dof n in _vertices) 
+            //foreach (Node3Dof n in _vertices) 
+            //    n.Rewind();
+
+            foreach (Node6Dof n in _vertices)
                 n.Rewind();
 
             foreach (Bar b in _edges)
@@ -1012,21 +1101,26 @@ namespace Structures
 
         public void PostProcess(Parameters p)
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
-                b.PostProcess();
+                e.PostProcess();
             }
             CalcMinMaxVisValue(p);
         }
 
         private void UpdateElementMesh(Parameters p)
         {
-            List<Bar> bars = GetBars();
-            foreach (Bar b in bars)
+            foreach (Element e in GetElements())
             {
-                b.BuildMesh();
-                b.ColorMesh(p.RealMin, p.RealMax, p.ShowMin, p.ShowMax);
+                e.BuildMesh();
+
+                //HACK
+                if(p.ColorBy == eColorBy.None)
+                    e.ColorMesh(0, 1, 0, 1);
+                else
+                    e.ColorMesh(p.RealMin, p.RealMax, p.ShowMin, p.ShowMax);
             }
+
             this.BuildMesh();
         }
 
@@ -1034,15 +1128,15 @@ namespace Structures
         {
             double _minColorByValue = 10000000000;
             double _maxColorByValue = -10000000000;
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
                 for (int i = 0; i < 2; i++)
                 {
-                    if (b.ColorBy[i] < _minColorByValue)
-                        _minColorByValue = b.ColorBy[i];
+                    if (e.ColorBy[i] < _minColorByValue)
+                        _minColorByValue = e.ColorBy[i];
 
-                    if (b.ColorBy[i] > _maxColorByValue)
-                        _maxColorByValue = b.ColorBy[i];
+                    if (e.ColorBy[i] > _maxColorByValue)
+                        _maxColorByValue = e.ColorBy[i];
                 }
             }
             p.RealMin = _minColorByValue;
@@ -1067,14 +1161,14 @@ namespace Structures
 
         public void DebugBake()
         {
-            foreach (Bar b in GetBars())
+            foreach (Element e in GetElements())
             {
-                Rhino.RhinoDoc.ActiveDoc.Objects.Add(b.GetMesh());
+                Rhino.RhinoDoc.ActiveDoc.Objects.Add(e.GetMesh());
             }
 
-            foreach (Bar b in _edges)
+            foreach (Element e in GetElements())
             {
-                Mesh mesh = b.GetMesh();
+                Mesh mesh = e.GetMesh();
 
                 for (int i = 0; i < mesh.Faces.Count; i++)
                 {
@@ -1096,7 +1190,6 @@ namespace Structures
                     Rhino.RhinoDoc.ActiveDoc.Objects.Add(brep);
                 }
             }
-
         }
 
         public void ExportToCsv()
@@ -1149,7 +1242,7 @@ namespace Structures
             CsvExport nodeExport = new CsvExport();
             int i = 1;
 
-            foreach (Node3Dof n in GetNode3dofs())
+            foreach (Node n in GetNodes())
             {
                 //Node coordinates
                 nodeExport.AddRow();

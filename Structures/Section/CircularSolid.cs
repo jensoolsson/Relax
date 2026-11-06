@@ -81,6 +81,12 @@ namespace Structures
             y = _r2;
         }
 
+        public override void Rewind()
+        {
+            _r1 = _iR1;
+            CalcSectionProperties();
+        }
+
 
         #endregion
         //----------------------------------------------------------------------------------//

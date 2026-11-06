@@ -21,6 +21,7 @@ namespace Structures
         protected int _id;                          //Unique identiy number for the object
         protected List<double> _edgeAngles;                 //Angles between edges sorted in counter clockwise order
         protected Point3d _pt;                      //Vertex representation as Point3d object.
+        protected Point3d _initPt;
         protected Vector3d _normal;                 //Normal vector
         protected List<double[]> _positions;        //Saved positions                    
         protected double _connectedEdgeLength;      //The length of edges comming in to the node.
@@ -38,6 +39,7 @@ namespace Structures
             _id = -1;
             _edgeAngles = new List<double>();
             _pt = new Point3d();
+            _initPt = new Point3d();
             _normal = new Vector3d();
             _positions = new List<double[]>();
             _connectedEdgeLength = 0;
@@ -66,9 +68,10 @@ namespace Structures
             _x[1] = pt.Y;
             _x[2] = pt.Z;
             _pt = new Point3d(pt);
-            _initX[0] = pt.X;
-            _initX[1] = pt.Y;
-            _initX[2] = pt.Z; 
+            _initPt = new Point3d(pt);
+            _initX[0] = _initPt.X;
+            _initX[1] = _initPt.Y;
+            _initX[2] = _initPt.Z; 
         }
 
         #endregion
@@ -255,7 +258,6 @@ namespace Structures
             double area = 0;
             foreach (Face face in _faces)
             {
-                face.CalcArea();
                 if (face.GetVertices().Count == 3)      //Triangle 
                     area += face.Area / 3;
                 else if (face.GetVertices().Count == 4) //Quad 
@@ -307,10 +309,12 @@ namespace Structures
 
         public virtual void Rewind() 
         {
-            _x = _initX;
-            _pt.X = _initX[0];
-            _pt.Y = _initX[1];
-            _pt.Z = _initX[2];
+            Point3d tempPt = new Point3d(_initPt);
+            
+            _x = new double[3]{ tempPt.X, tempPt.Y, tempPt.Z};
+            _pt.X = tempPt.X;
+            _pt.Y = tempPt.Y;
+            _pt.Z = tempPt.Z;
         }
 
         #endregion

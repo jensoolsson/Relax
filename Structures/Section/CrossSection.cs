@@ -45,6 +45,9 @@ namespace Structures
 
         public abstract void GetXY(ref double x, ref double y);
 
+        public abstract void Rewind();
+
+
         /** Passing on call to elementMesh class to build mesh geometry.
         * 
         */

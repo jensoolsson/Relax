@@ -93,12 +93,20 @@ namespace Structures
         Moment_Y,
         Twist,
         Force,
+        None,
     }
 
     public enum eSplineType
     {
         BendingSpline,
         BendingTorsionSpline
+    }
+
+    public enum eBeamMode
+    {
+        PropertyControl,
+        ForceMomentControl,
+        LimitControl
     }
 
 }

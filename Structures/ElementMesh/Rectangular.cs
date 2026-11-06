@@ -19,14 +19,29 @@ namespace Structures
         }
 
 
+        //public override void BuildMesh(Bar bar)
+        //{
+        //    Vector3d vec = bar.GetEnd().Point - bar.GetStart().Point;
+        //    CoordSystem[] css = new CoordSystem[2];
+
+        //    css[0] = bar.BaseCS;
+        //    css[1] = bar.BaseCS;
+
+        //    BuildMeshFromCS(css, bar);
+        //}
+
+
         public override void BuildMesh(Bar bar)
         {
             Vector3d vec = bar.GetEnd().Point - bar.GetStart().Point;
+
             CoordSystem[] css = new CoordSystem[2];
 
-            css[0] = bar.BaseCS;
-            css[1] = bar.BaseCS;
-
+            if (bar.GetFaces().Count > 0)
+                css = ConstructMeshNormalCS(bar, vec);
+            else
+                css = ConstructPerpCS(vec);
+            
             BuildMeshFromCS(css, bar);
         }
 
@@ -81,6 +96,57 @@ namespace Structures
                 }
             }
         }
+
+
+        public CoordSystem[] ConstructPerpCS(Vector3d elemZ)
+        {
+            Vector3d zVec = new Vector3d(0, 0, 1);
+            Vector3d elemX = Vector3d.CrossProduct(elemZ, zVec);
+            Vector3d elemY = Vector3d.CrossProduct(elemZ, elemX);
+
+            CoordSystem cs1 = new CoordSystem(elemX, elemY, elemZ);
+            CoordSystem cs2 = new CoordSystem(elemX, elemY, elemZ);
+            CoordSystem[] css = new CoordSystem[2];
+
+            css[0] = cs1;
+            css[1] = cs1;
+
+            return css;
+        }
+
+
+
+        public CoordSystem[] ConstructMeshNormalCS(Bar b, Vector3d elemZ)
+        {
+            List<Face> faces = b.GetFaces();
+            Vector3d normal = new Vector3d(0,0,0);
+
+            foreach (Face f in faces)
+                normal += f.Normal;
+
+            normal.Unitize();
+
+            Vector3d elemX = Vector3d.CrossProduct(elemZ, normal);
+            Vector3d elemY = Vector3d.CrossProduct(elemZ, elemX);
+
+            CoordSystem cs1 = new CoordSystem(elemX, elemY, elemZ);
+            CoordSystem cs2 = new CoordSystem(elemX, elemY, elemZ);
+            CoordSystem[] css = new CoordSystem[2];
+
+            css[0] = cs1;
+            css[1] = cs1;
+
+            return css;
+        }
+
+
+
+
+
+
+
+
+
 
         public override void ColorMesh(Bar bar, double realMin, double realMax, double showMin, double showMax)
         {

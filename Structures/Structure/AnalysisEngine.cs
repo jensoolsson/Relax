@@ -14,6 +14,7 @@ namespace Structures
         double _obm;
         bool _isConverged_DR;                       //For normal DR analysis..
         bool _isConverged_Sizing;
+        bool _updateLoad;
 
 
         public void Initialise()
@@ -24,6 +25,7 @@ namespace Structures
 
             _isConverged_DR = false;
             _isConverged_Sizing = false;
+            _updateLoad = false;
         }
 
         public AnalysisEngine(Structure structure) 
@@ -77,6 +79,16 @@ namespace Structures
         */
         public void RunDR(Parameters p) 
         {
+            if (_updateLoad)
+            {
+                _structure.CalcLoadFromMass(p);
+                _structure.CalcLoadFromSurface(p);
+                _structure.ClearNodeLoad();
+                _structure.ApplyLoad(p);
+                _structure.CalcMaxMinLoadPerNode();
+                _updateLoad = false;
+            }
+
             //Set force = 0, and moment = 0 on the nodes
             _structure.ResetForcesMoments();
 
@@ -84,7 +96,10 @@ namespace Structures
             _structure.CalcFictiousMass(p);
             
             //Calculate force and moments in the beams.
-            _structure.CalcStrain(p);
+            if(!p.ModeControl)
+                _structure.CalcStrain(p);
+            else
+                _structure.CalcForceAndMoments(p);
 
             //Apply force and or moments to nodes.
             _structure.ApplyStrainToNodes();
@@ -98,6 +113,17 @@ namespace Structures
             IsConverged();
         }
 
+        
+
+        /** Load has changed from the UI
+        *   
+        */
+        public void UpdateLoad(Parameters p)
+        {
+            _updateLoad = true;
+        }
+
+
         /** Size optimisation iteration 
         *   
         */
@@ -109,7 +135,7 @@ namespace Structures
             //Update size depenend properties
             _structure.ClearNodeLoad();
             _structure.CalcMass(p);
-            _structure.CalcLoad(p);
+            _structure.CalcLoadFromMass(p);
             _structure.ApplyLoad(p);
 
             _structure.CalcFictiousMass(p);
@@ -161,9 +187,10 @@ namespace Structures
         {
             double totForce = 0;
 
-            foreach (Bar b in _structure.GetBars())
+            foreach (Element e in _structure.GetElements())
             {
-                totForce += b.GetConvergForce();
+                e.CalcConvergForce();
+                totForce += e.ConvergForce;
             }
             _convergeForce_DR = 0.00005 * totForce;
             _convergeForce_Sizing = 0.05 * totForce;
@@ -173,6 +200,14 @@ namespace Structures
         {
         
         }
+
+
+
+
+
+
+
+
 
     }
 }

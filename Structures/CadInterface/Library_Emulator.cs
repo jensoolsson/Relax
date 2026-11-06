@@ -19,7 +19,7 @@ namespace Structures
 
         Main _m;
         Parameters _p;
-        RhinoInterface _rI;
+        //RhinoInterface _rI;
         Structure _s;
 
         public void Initialise() 
@@ -27,7 +27,7 @@ namespace Structures
             _lines = new List<RhinoObject>();
             _pts = new List<RhinoObject>();
             _pLines = new List<RhinoObject>();
-            _rI = new RhinoInterface();
+            //_rI = new RhinoInterface();
         }
 
         public Library_Emulator()
@@ -38,16 +38,16 @@ namespace Structures
 
         public void SetUp() 
         {
-            _rI.SelectObjects();
-            _rI.SortGeometry();
+            //_rI.SelectObjects();
+            //_rI.SortGeometry();
             GetGeometry();
             GH_Example();
         }
 
         public void GetGeometry() 
         {
-            _lines = _rI.GetLines();
-            _pts = _rI.GetPoints();
+            //_lines = _rI.GetLines();
+            //_pts = _rI.GetPoints();
         }
 
 

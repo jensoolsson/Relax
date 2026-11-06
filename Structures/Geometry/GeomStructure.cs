@@ -63,6 +63,12 @@ namespace Structures
         //-------------------------- Properties and add methods ----------------------------//
         #region
 
+        public double AverageLength
+        {
+            get { return _avrgEdgeLength; }
+            set { _avrgEdgeLength = value; }
+        }
+        
         public void AddVertex(Vertex v) 
         {
             _vertices.Add(v);
@@ -207,6 +213,8 @@ namespace Structures
 
             CalcEdgeInitialLength();
 
+            CalcProjectedLengthArea();
+
             CalcAvrgEdgeLength();
 
             CalcEdgeMidPoint();
@@ -311,6 +319,10 @@ namespace Structures
             UnifyNormals();
 
             CalculateVertexNormals();
+
+            CalculateArea();
+
+            CalculateProjectedArea();
 
             UnifyNodesSorting();
 
@@ -572,6 +584,15 @@ namespace Structures
                 e.CalcInitialLength();
         }
 
+        private void CalcProjectedLengthArea()
+        {
+            foreach (Edge e in _edges)
+            {
+                e.CalcProjectedLength();
+                e.CalcProjectedArea();
+            }
+        }
+
         private void CalcEdgeMidPoint() 
         {
             foreach (Edge e in _edges) 
@@ -599,6 +620,27 @@ namespace Structures
         {
             foreach (Vertex v in _vertices)
                 v.CalcNormal();
+        }
+
+        private void CalculateArea()
+        {
+            foreach (Face f in _faces)
+                f.CalcArea();
+
+            foreach (Vertex v in _vertices)
+                v.CalcArea();
+        }
+
+        private void CalculateProjectedArea()
+        {
+            foreach (Face f in _faces)
+                f.CalcProjectedArea();
+
+            foreach (Edge e in _edges)
+            {
+                e.CalcProjectedLength();
+                e.CalcProjectedArea();    
+            }
         }
 
 

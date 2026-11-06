@@ -36,6 +36,9 @@ namespace Structures
 
         protected System.Windows.Forms.Timer _previewTimer;
 
+        //-------------------- Constructor and Initialisation functions --------------------//
+        #region
+
         public void Initialise() 
         {
             _sizing = false;
@@ -89,16 +92,11 @@ namespace Structures
             _structure = structure;
             _analysisEngine = new AnalysisEngine(structure);
             _conduit = new Conduit(structure, p);
-            //_conduit.Enabled = true;
+            _conduit.Enabled = true;
         }
 
-        public void Update(Structure structure, Parameters parameters) 
-        {
-            _structure = structure;
-            _p = parameters;
-
-            _analysisEngine.Structure = structure;
-        }
+        #endregion
+        //----------------------------------------------------------------------------------//
 
 
         //---------------------------------- Properties ------------------------------------//
@@ -208,26 +206,13 @@ namespace Structures
             }
         }
 
-        public void RunDR_GH()
-        {
-            bool converged = false;
-            int apa = 0;
-            
-            for (int i = 0; i < _p.NrIterations; i++) 
-            {
-                _analysisEngine.RunDR(_p);
-                converged = _analysisEngine.IsConverged_DR;
-            }
-        }
-
-
         private void DR_Thread()
         {
             _drCounter = 0;
             bool converged = false;
             _analysisEngine.CalcConvergenceForce(_p);
 
-            while (!converged)
+            while (true) //(!converged)
             {
                 try
                 {
@@ -370,6 +355,25 @@ namespace Structures
         #endregion
         //----------------------------------------------------------------------------------//
 
+        //------------------------------------ Other ---------------------------------------//
+        #region
+
+        public void Update(Structure structure, Parameters parameters)
+        {
+            _structure = structure;
+            _p = parameters;
+
+            _analysisEngine.Structure = structure;
+        }
+
+        public void UpdateLoad()
+        {
+            _analysisEngine.UpdateLoad(_p);
+        }
+
+
+        #endregion
+        //----------------------------------------------------------------------------------//
 
 
 

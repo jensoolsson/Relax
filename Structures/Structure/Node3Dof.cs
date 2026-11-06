@@ -11,11 +11,11 @@ using Rhino.DocObjects;
 
 namespace Structures
 {
-    public class Node3Dof : Vertex
+    public class Node3Dof : Node
     {
         //Attributes
         protected double[] _x1;                         //New coordinates i.e. x1 = x(t + dt) = x(t) + v*dt 
-        protected double[] _move;                         //Movement for the next timestep before applied to the nodes
+        protected double[] _move;                       //Movement for the next timestep before applied to the nodes
         protected double[] _v;                          //Velocity      
         protected double[] _a;                          //Acceleration
         protected double[] _iF;                         //Internal force (from bars, cables and beams)
@@ -35,7 +35,6 @@ namespace Structures
         protected double _m;                            //Lumped mass based on the real weight of the structure.
         protected double[] _mf;                         //Fictous mass used for faster convergence in form finding.                                 
         
-        protected eConstraint _constraint;              //Constraint status
         protected double _af_angle;                     //The angle between the attraction vector and the node normal.
         protected double _moveDist;                     //Distance the node has moved since last iteration
 
@@ -209,11 +208,6 @@ namespace Structures
             set { _mf = value; }
         }
 
-        public eConstraint Constraint 
-        {
-            get { return _constraint; }
-            set { _constraint = value; }
-        }
 
         public double MoveDist
         {
@@ -382,24 +376,24 @@ namespace Structures
         /** Calculate the mass and moment of inertia for faster convergence. 
         *   
         */
-        public virtual void CalcFictiousMass(double dt)
+        public override void CalcFictiousMass(double dt, double transStiffSF, double rotStiffSF)
         {
-            CalcFictiousMassInternal(dt);
+            CalcFictiousMassInternal(dt, transStiffSF);
         }
 
         /** Calculate the fictional mass based on axial and rotational stiffness. 
         *   
         */
-        private void CalcFictiousMassInternal(double dt)
+        private void CalcFictiousMassInternal(double dt, double alpha)
         {
             //double sf = 0.01;
-            double sf = GetBars()[0].NodeStiffnessScaleFactor;
+            //double sf = GetBars()[0].TransStiffnessScaleFactor;
 
             //Mass in x-dir is based on the axial stiffness in the x-dir and the bending stiffness
             //in the plane where the x-dir is the normal (yz plane).
-            _mf[0] = 1 + Math.Pow(dt, 2) * (sf * _transStiffness[0]);
-            _mf[1] = 1 + Math.Pow(dt, 2) * (sf * _transStiffness[1]);
-            _mf[2] = 1 + Math.Pow(dt, 2) * (sf * _transStiffness[2]);
+            _mf[0] = 1 + Math.Pow(dt, 2) * (alpha * _transStiffness[0]);
+            _mf[1] = 1 + Math.Pow(dt, 2) * (alpha * _transStiffness[1]);
+            _mf[2] = 1 + Math.Pow(dt, 2) * (alpha * _transStiffness[2]);
         }
 
         /** Calculating the inflation force for the mNodes based on the inflation slider bar value 
@@ -441,15 +435,15 @@ namespace Structures
         /** Transform node due to strains.
         * 
         */
-        public virtual void TransformDueToStrain(double dt, double vd, double loadSF)
+        public override void TransformDueToStrain(double dt, double vd, double loadSF, bool isSelfWeight, double surfaceLoadMagnitude)
         {
-            CalcTranslation(dt, vd, loadSF);
+            CalcTranslation(dt, vd, loadSF, isSelfWeight, surfaceLoadMagnitude);
         }
 
         /** Calculate the rotation of the node due to the moment timestep (dt) and carry over factor (cf)
         * 
         */
-        protected void CalcTranslation(double dt, double vd, double loadSF)
+        protected void CalcTranslation(double dt, double vd, double loadSF, bool isSelfWeight, double surfaceLoadMagnitude)
         {
             if (_constraint != eConstraint.Free)
                 return;
@@ -457,10 +451,17 @@ namespace Structures
             //Storing the previous force for visualization.
             _prevForce = _tF;
 
-            _tF[0] = _iF[0] + loadSF * _loadFromMass[0] + loadSF * _loadFromSurface[0] + _sbF[0] + _stF[0];
-            _tF[1] = _iF[1] + loadSF * _loadFromMass[1] + loadSF * _loadFromSurface[1] + _sbF[1] + _stF[1];
-            _tF[2] = _iF[2] + loadSF * _loadFromMass[2] + loadSF * _loadFromSurface[2] + _sbF[2] + _stF[2];
+            _tF[0] = _iF[0] + loadSF * surfaceLoadMagnitude * _loadFromSurface[0] + _sbF[0] + _stF[0];
+            _tF[1] = _iF[1] + loadSF * surfaceLoadMagnitude * _loadFromSurface[1] + _sbF[1] + _stF[1];
+            _tF[2] = _iF[2] + loadSF * surfaceLoadMagnitude * _loadFromSurface[2] + _sbF[2] + _stF[2];
 
+            if (isSelfWeight)
+            {
+                _tF[0] += loadSF * _loadFromMass[0];
+                _tF[1] += loadSF * _loadFromMass[1];
+                _tF[2] += loadSF * _loadFromMass[2];
+            }
+            
             //Calculate acceleration
             _a[0] = _tF[0] / _mf[0];
             _a[1] = _tF[1] / _mf[1];
@@ -522,9 +523,11 @@ namespace Structures
         /** Clear force on the node
         * 
         */        
-        public virtual void Clear() 
+        public override void Clear() 
         {
             ClearForce();
+            ClearAcceleration();
+            ClearVelocity();
             ClearSplineBarForce();
             ClearTranslationStiffness();
         }
@@ -537,6 +540,13 @@ namespace Structures
             _iF[0] = 0;
             _iF[1] = 0;
             _iF[2] = 0;
+        }
+
+        private void ClearAcceleration()
+        {
+            _a[0] = 0;
+            _a[1] = 0;
+            _a[2] = 0;
         }
 
         public void ClearSplineBarForce()
@@ -606,7 +616,7 @@ namespace Structures
         *   set to be 5% of the shortest member length, meaning the node is prohibited to during one 
         *   iteration not move further then that limit.         
         */
-        public virtual void CalcStabilityLimit()
+        public override void CalcStabilityLimit()
         {
             double minL = 100000000;
 
@@ -644,7 +654,6 @@ namespace Structures
         {
             base.Rewind();
             Clear();
-            InitialiseCoordSystem();
         }
 
 
@@ -654,6 +663,14 @@ namespace Structures
 
         //-------------------------------- Load and mass -----------------------------------//
         #region
+
+        public override void ClearLoad()
+        {
+            ClearLoadFromMass();
+            ClearLoadFromSurface();
+            ClearSplineBarForce();
+        }
+
 
         public void ClearLoadFromMass() 
         {
@@ -669,10 +686,21 @@ namespace Structures
             _loadFromSurface[2] = 0;
         }
 
+
+        public override void ApplyLoadFromSurface(double loadPerSquareMeter)
+        {
+            
+        }
+
+
+
+
         #endregion
         //----------------------------------------------------------------------------------//
 
-        public virtual void InitialiseCoordSystem() { }
+        public override void InitialiseCoordSystem()
+        {
+        }
 
 
     }

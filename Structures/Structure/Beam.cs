@@ -39,7 +39,7 @@ namespace Structures
         private double _maxM;                           //Max moment along the member.
         private double _avrgDisp;                        //Average displacement
         
-        private double _sizingUtil;                     //The leve to which the sizing is carried out
+        private double _sizingUtil;                     //The level to which the sizing is carried out
         private double _effectiveLength;                //Effective length of beam, needed in euro code 3 equations, used here for utilization calculations
         private double _effectiveLengthScaleFactor;     //Due to difficuly to calculate actuall effective length, this scale factor was intorduced.
 
@@ -334,13 +334,13 @@ namespace Structures
             set { _avrgDisp = value; }
         }
 
-        public double[] NodeRotationalStiffness 
+        public double[] RotationalStiffness 
         {
             get { return _rotStiffness; }
             set { _rotStiffness = value; }
         }
 
-        public double NodeRotationalStiffnessScaleFactor 
+        public double RotationalStiffnessScaleFactor 
         {
             get { return _nrs_Sf; }
             set { _nrs_Sf = value; }
@@ -354,7 +354,7 @@ namespace Structures
         #region
 
 
-        public void ClearForce() 
+        public override void ClearForce() 
         {
             _f[0] = 0;
             _f[1] = 0;
@@ -405,6 +405,7 @@ namespace Structures
             _cs1.Clear();
             _cs2.Clear();
         }
+
 
         #endregion
         //----------------------------------------------------------------------------------//
@@ -590,7 +591,7 @@ namespace Structures
         /** Calculate local moment in the element at the two ends, used in elastic control
         * 
         */
-        private void CalcMoment()
+        public void CalcMoment()
         {
             double x1 = _rot1[0];
             double y1 = _rot1[1];
@@ -658,13 +659,13 @@ namespace Structures
         {
             base.ApplyNodeStiffness();
 
-            GetStart().RotationalStiffness[0] += _nrs_Sf * _rotStiffness[0];
-            GetStart().RotationalStiffness[1] += _nrs_Sf * _rotStiffness[1];
-            GetStart().RotationalStiffness[2] += _nrs_Sf * _rotStiffness[2];
+            GetStart().RotationalStiffness[0] += _rotStiffness[0];
+            GetStart().RotationalStiffness[1] += _rotStiffness[1];
+            GetStart().RotationalStiffness[2] += _rotStiffness[2];
 
-            GetEnd().RotationalStiffness[0] += _nrs_Sf * _rotStiffness[0];
-            GetEnd().RotationalStiffness[1] += _nrs_Sf * _rotStiffness[1];
-            GetEnd().RotationalStiffness[2] += _nrs_Sf * _rotStiffness[2];
+            GetEnd().RotationalStiffness[0] +=  _rotStiffness[0];
+            GetEnd().RotationalStiffness[1] +=  _rotStiffness[1];
+            GetEnd().RotationalStiffness[2] +=  _rotStiffness[2];
         }
 
 
@@ -738,7 +739,7 @@ namespace Structures
         /** Convert moments to nodal coordiantes. See eqn 2.39 in in "Stressed spline structures" Sigrid Adriaenssens for details.
         * 
         */
-        private void ApplyMomentsToNodes()
+        public void ApplyMomentsToNodes()
         {
             Vector3d p = _vertices[1].Point - _vertices[0].Point;
             double[] _nM1 = new double[3];                                  //Moment for node 1 in nodal coordinates.
@@ -1273,36 +1274,37 @@ namespace Structures
         /** Calculate load from surface 
         * 
         */
-        public override void CalcLoadFromSurface(Vector3d dirVec, double gravity, eLoadType loadType)
-        {
-            base.CalcLoadFromSurface(dirVec, gravity, loadType);
+        //public override void CalcLoadFromSurface(Vector3d dirVec, double gravity, eLoadType loadType)
+        //{
+        //    base.CalcLoadFromSurface(dirVec, gravity, loadType);
         
-            //if(loadType == Structures.eLoadType.LineLoad)
-            //    CalcLineLoadFromSurface(double projLength, Vector3d loadDir, double loadPerMeter)
-            //else if (loadType == Structures.eLoadType.AreaLoad)
-            //    CalcAreaLoadFromSurface(double projLength, Vector3d loadDir, double loadPerMeter)
-        }
+        //    //if(loadType == Structures.eLoadType.LineLoad)
+        //    //    CalcLineLoadFromSurface(double projLength, Vector3d loadDir, double loadPerMeter)
+        //    //else if (loadType == Structures.eLoadType.AreaLoad)
+        //    //    CalcAreaLoadFromSurface(double projLength, Vector3d loadDir, double loadPerMeter)
+        //}
 
-        public override void CalcPointLoadFromSurface(Vector3d loadDir, double magnitude)
-        {
-            base.CalcPointLoadFromSurface( loadDir, magnitude);
-        }
+        //public override void CalcPointLoadFromSurface(Vector3d loadDir, double magnitude)
+        //{
+        //    base.CalcPointLoadFromSurface( loadDir, magnitude);
+        //}
 
-        public override void CalcLineLoadFromSurface(double projLength, Vector3d loadDir, double loadPerMeter)
-        {
-            base.CalcLineLoadFromSurface(projLength, loadDir, loadPerMeter);
+        
+        //public override void CalcLineLoadFromSurface(Vector3d loadDir, double loadPerMeter)
+        //{
+        //    base.CalcLineLoadFromSurface(loadDir, loadPerMeter);
          
-            _M_LoadFromSurface = CalcMomentsFromDistributedLoad(loadDir, loadPerMeter);
-        }
+        //    //_M_LoadFromSurface = CalcMomentsFromDistributedLoad(loadDir, loadPerMeter);
+        //}
 
-        public override void CalcAreaLoadFromSurface(double area, Vector3d loadDir, double loadPerSquareMeter)
-        {
-            base.CalcAreaLoadFromSurface(area, loadDir, loadPerSquareMeter);
+        //public override void CalcAreaLoadFromSurface(Vector3d loadDir, double loadPerSquareMeter)
+        //{
+        //    base.CalcAreaLoadFromSurface(loadDir, loadPerSquareMeter);
 
-            double loadPerMeter = (loadPerSquareMeter * area / _initLength);
+        //    //double loadPerMeter = (loadPerSquareMeter * area / _initLength);
+        //    //_M_LoadFromSurface = CalcMomentsFromDistributedLoad(loadDir, loadPerMeter);
+        //}
 
-            _M_LoadFromSurface = CalcMomentsFromDistributedLoad(loadDir, loadPerMeter);
-        }
 
         /** Calculate load from mass (i.e. self weight).
         * 
@@ -1423,7 +1425,7 @@ namespace Structures
         /** Scale forces and moments for separate utilization, axial and bending. Used in plastic analysis custom control.
         * 
         */
-        private void ScaleMomentAndForcePlastic(double ua, double ub)
+        public void ScaleMomentAndForcePlastic(double ua, double ub)
         {
             ScaleForceFromUtilization(ua);
             ScaleMomentFromUtilization(ub);
@@ -1538,7 +1540,7 @@ namespace Structures
         * Used in plastic analysis with custom control.
         * 
         */
-        private void ScaleMomentAndForce(double ua, double ub)
+        public void ScaleMomentAndForce(double ua, double ub)
         {
             double axUtil = 0, mUtil1 = 0, mUtil2 = 0;
             double sFac;
@@ -1629,6 +1631,11 @@ namespace Structures
                     _colorBy[1] = _twist;
                     break;
 
+                case eColorBy.None:
+                    _colorBy[0] = 0;
+                    _colorBy[1] = 0;
+                    break;
+
                 default:
                     _colorBy[0] = 0;
                     _colorBy[1] = 0;
@@ -1638,6 +1645,25 @@ namespace Structures
 
         #endregion
         //----------------------------------------------------------------------------------//
+
+
+
+        public override void Rewind()
+        {
+            _length = _initLength;
+
+            ClearAxialForce();
+            ClearMoments();
+            ClearRotations();
+            ClearSectionForce();
+            ClearCoordinatSystem();
+
+            _crossSection.Rewind();
+
+            InitialiseCoordSystem();
+        }
+
+
 
     }
 }

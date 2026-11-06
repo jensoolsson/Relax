@@ -153,7 +153,6 @@ namespace Structures
             set { _rotStiffness = value; }
         }
 
-
         #endregion
         //----------------------------------------------------------------------------------//
 
@@ -200,13 +199,7 @@ namespace Structures
             base.Clear();
             ClearMoments();
             ClearRotations();
-        }
-
-        private void ClearForce()
-        {
-            _iF[0] = 0;
-            _iF[1] = 0;
-            _iF[2] = 0;
+            ClearRotationalStiffness();
         }
 
         private void ClearMoments()
@@ -233,6 +226,29 @@ namespace Structures
             _rot[2] = 0;
         }
 
+        private void ClearAngularVelocity()
+        {
+            _angVel[0] = 0;
+            _angVel[1] = 0;
+            _angVel[2] = 0;
+        }
+
+        private void ClearAngularAcceleration()
+        {
+            _angAcc[0] = 0;
+            _angAcc[1] = 0;
+            _angAcc[2] = 0;
+        }
+
+        private void ClearAngularRotation()
+        {
+            _angRot[0] = 0;
+            _angRot[1] = 0;
+            _angRot[2] = 0;
+        }
+
+
+
         /** Sets current state to initial state.
         * 
         */
@@ -253,34 +269,34 @@ namespace Structures
         /** Calculate the mass and moment of inertia for faster convergence. 
         *   
         */
-        public override void CalcFictiousMass(double dt)
+        public override void CalcFictiousMass(double dt, double transStiffSF, double rotStiffSF)
         {
-            CalcFictiousMassInternal(dt);
+            CalcFictiousMassInternal(dt, transStiffSF, rotStiffSF);
             //CalcMomentOfInertia(dt);
         }
 
         /** Calculate the fictional mass based on axial and rotational stiffness. 
         *   
         */
-        private void CalcFictiousMassInternal(double dt)
+        private void CalcFictiousMassInternal(double dt, double alpha, double beta)
         {    
             _gamma = 0;         //Scale factor for bending stiffness used when taking bending into account for the mass calc. 
 
             //Fictious translational mass
-            _mf[0] = 1 + Math.Pow(dt, 2) * (_transStiffness[0] + _gamma * (_rotStiffness[2] + _rotStiffness[1])) / 2;
-            _mf[1] = 1 + Math.Pow(dt, 2) * (_transStiffness[1] + _gamma * (_rotStiffness[2] + _rotStiffness[0])) / 2;
-            _mf[2] = 1 + Math.Pow(dt, 2) * (_transStiffness[2] + _gamma * (_rotStiffness[0] + _rotStiffness[1])) / 2;
+            _mf[0] = 1 + Math.Pow(dt, 2) * (alpha * _transStiffness[0] + _gamma * (_rotStiffness[2] + _rotStiffness[1])) / 2;
+            _mf[1] = 1 + Math.Pow(dt, 2) * (alpha * _transStiffness[1] + _gamma * (_rotStiffness[2] + _rotStiffness[0])) / 2;
+            _mf[2] = 1 + Math.Pow(dt, 2) * (alpha * _transStiffness[2] + _gamma * (_rotStiffness[0] + _rotStiffness[1])) / 2;
 
             //Fictious moment of inertia
-            _moi[0] = 1 + Math.Pow(dt, 2) * _rotStiffness[0] / 2;
-            _moi[1] = 1 + Math.Pow(dt, 2) * _rotStiffness[1] / 2;
-            _moi[2] = 1 + Math.Pow(dt, 2) * _rotStiffness[2] / 2;
+            _moi[0] = 1 + Math.Pow(dt, 2) * beta * _rotStiffness[0] / 2;
+            _moi[1] = 1 + Math.Pow(dt, 2) * beta * _rotStiffness[1] / 2;
+            _moi[2] = 1 + Math.Pow(dt, 2) * beta * _rotStiffness[2] / 2;
         }
 
 
-        public override void TransformDueToStrain(double dt, double vd, double loadSF) 
+        public override void TransformDueToStrain(double dt, double vd, double loadSF, bool isSelfWeight, double surfaceLoadMagnitude) 
         {
-            CalcTranslation(dt, vd, loadSF);
+            CalcTranslation(dt, vd, loadSF, isSelfWeight, surfaceLoadMagnitude);
 
             CalcRotation(dt, vd);
 

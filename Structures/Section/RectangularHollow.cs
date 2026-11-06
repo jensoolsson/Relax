@@ -22,9 +22,9 @@ namespace Structures
             _crossSectionType = eCrossSection.Rectangular_Hollow;
             _elemMesh = new Rectangular();
 
-            _b = 0.1;       //Outer width of section
-            _h = 0.2;       //Outer height of section
-            _t = 0.01;      //Wall thickness,for simplicity same in all directions
+            _b = 0.2;       //Outer width of section
+            _h = 0.4;       //Outer height of section
+            _t = 0.05;      //Wall thickness,for simplicity same in all directions
 
             _iB = _b;
             _iH = _h;
@@ -85,6 +85,14 @@ namespace Structures
         {
             x = _b;
             y = _h;
+        }
+
+        public override void Rewind()
+        {
+            _h = _iH;
+            _b = _iB;
+            _t = _iT;
+            CalcSectionProperties();
         }
 
         #endregion

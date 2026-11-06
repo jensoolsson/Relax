@@ -17,6 +17,8 @@ namespace Structures
         protected List<Face> _faces;                //Neighbouring faces    
         protected double _initLength;               //Initial lenght
         protected double _length;                   //Length
+        protected double _projLength;                   //Length
+        protected double _projArea;                   //Length
         protected int _id;                          //Unique identifier
         protected Point3d _midPt;
 
@@ -132,6 +134,23 @@ namespace Structures
             _initLength = GetStart().Point.DistanceTo(GetEnd().Point);
         }
 
+        public virtual void CalcProjectedLength()
+        {
+            //Assuming the elment to projected on the xy plane, => zz = 0.
+            double xx = GetStart().Point.X - GetEnd().Point.X;
+            double yy = GetStart().Point.Y - GetEnd().Point.Y;
+
+            _projLength = Math.Sqrt(xx * xx + yy * yy);
+        }
+
+        public virtual void CalcProjectedArea()
+        {
+            _projArea = 0;
+            for (int i = 0; i < _faces.Count; i++)
+                _projArea += _faces[i].ProjectedArea / _faces[i].GetEdges().Count;
+        }
+
+        
         public virtual void CalcMidPoint() 
         {
             _midPt = (_vertices[0].Point + _vertices[1].Point) / 2;

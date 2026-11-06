@@ -19,8 +19,8 @@ namespace Structures
             _elemMesh = new Cylindrical();
 
             //Hard coded values for circular sections:
-            _r1 = 0.1;
-            _r2 = 0.09;
+            _r1 = 0.075;
+            _r2 = 0.07;
             _iR1 = _r1;
             _iR2 = _r2;
         }
@@ -88,6 +88,15 @@ namespace Structures
             x = _r1;
             y = _r2;
         }
+
+        public override void Rewind()
+        {
+            _r1 = _iR1;
+            _r2 = _iR2;
+            CalcSectionProperties();
+        }
+
+
 
         #endregion
         //----------------------------------------------------------------------------------//

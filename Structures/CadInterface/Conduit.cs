@@ -26,7 +26,7 @@ namespace Structures
         {
             _structure = structure;
             _p = p;
-            _baseColor = System.Drawing.Color.Red;
+            _baseColor = System.Drawing.Color.Azure;
         }
 
         public Structure Structure 
@@ -80,7 +80,10 @@ namespace Structures
                     DrawNodeRing(e);
 
                 if (_p.Draw3dBars)
+                {
+                    Draw3DSupports(e);
                     Draw3DBars(e);
+                }
 
                 if (_p.DrawNodeCS)
                     DrawNodeCS(e);
@@ -97,8 +100,30 @@ namespace Structures
                 if (_p.DrawFaceID)
                     DrawFaceID(e);
 
-                if (_p.DrawDebug)
-                    Debug2(e);
+                if (_p.DrawUtilisation)
+                    DrawUtilisation(e);
+                
+                if (_p.DrawNodeMass)
+                    DrawNodeMass(e);
+
+                if (_p.DrawNodeLoad)
+                    DrawNodeLoad(e);
+
+                if (_p.DrawLoadArrows)
+                    DrawLoadArrows(e);
+
+                if (_p.DrawNodeTS)
+                    DrawNodeTS(e);
+
+                if (_p.DrawNodeRS)
+                    DrawNodeRS(e);
+
+                if (_p.DrawElementTS)
+                    DrawElementTS(e);
+
+                if (_p.DrawElementRS)
+                    DrawElementRS(e);
+                
 
                 //Debug3(e);
 
@@ -177,12 +202,31 @@ namespace Structures
             foreach (Bar b in _structure.GetBars())
             {
                 if (b.IsMeshBuilt)
-                {
+                {   
                     e.Display.DrawMeshFalseColors(b.CrossSection.GetMesh());
                     e.Display.DrawMeshWires(b.CrossSection.GetMesh(), System.Drawing.Color.Black);
                 }
             }
         }
+
+        public void Draw3DSupports(DrawEventArgs e)
+        {
+            DisplayMaterial dm = new DisplayMaterial(_baseColor);
+
+            double h = 0.3;
+            double r = 0.15;
+
+            foreach (Node3Dof n in _structure.GetNode3dofs())
+            {
+                if (n.Constraint == eConstraint.Pined || n.Constraint == eConstraint.Fixed)
+                {
+                    Cone cone = new Cone(new Plane(new Point3d(n.Point.X, n.Point.Y, (n.Point.Z-(h/2))), new Vector3d(0, 0, -1)), h, r);
+                    e.Display.DrawCone(cone, _baseColor);
+                }
+            }
+        }
+
+
 
         public void DrawVertexID(DrawEventArgs e) 
         {
@@ -310,30 +354,127 @@ namespace Structures
             }
         }
 
-        public void Debug2(DrawEventArgs e)
+        public void DrawUtilisation(DrawEventArgs e)
         {
             foreach (Bar b in _structure.GetBars())
             {
                 double u1 = b.ColorBy[0];
                 double u2 = b.ColorBy[1];
 
-                u1 = Math.Round(u1, 9);
-                u2 = Math.Round(u2, 9);
+                u1 = Math.Round(100 * u1, 0);
+                u2 = Math.Round(100 * u2, 0);
 
                 Point3d pt1 = (b.GetStart().Point + b.MidPoint) / 2;
                 Point3d pt2 = (b.GetEnd().Point + b.MidPoint) / 2;
 
-                e.Display.DrawDot(pt1, u1.ToString());
-                e.Display.DrawDot(pt2, u2.ToString());
+                Point3d ptMid = b.MidPoint;// + new Point3d(0,-1,0);
+
+                //e.Display.DrawDot(pt1, u1.ToString() + " %");
+                //e.Display.DrawDot(pt2, u2.ToString() + " %");
+
+                double average = (u1 + u2) / 2.0;
+
+                e.Display.DrawDot(ptMid, average.ToString() + " %");
+
             }
         }
+
+
+        public void DrawNodeMass(DrawEventArgs e)
+        {
+            foreach (Node3Dof n in _structure.GetNode3dofs())
+            {
+                double[] load = n.LoadFromMass;
+                double loadMag = Math.Sqrt(load[0] * load[0] + load[1] * load[1] + load[2] * load[2]);
+                e.Display.DrawDot(n.Point, Math.Round(loadMag).ToString() + " N" );
+            }
+        }
+
+
+        public void DrawNodeLoad(DrawEventArgs e)
+        {
+            foreach (Node3Dof n in _structure.GetNode3dofs())
+            {
+                double[] load = n.LoadFromSurface;
+                double loadMag = Math.Sqrt(load[0] * load[0] + load[1] * load[1] + load[2] * load[2]);
+                e.Display.DrawDot(n.Point, Math.Round(loadMag * _p.SurfaceLoadMagnitude).ToString() + " N");
+            }
+        }
+
+        public void DrawLoadArrows(DrawEventArgs e)
+        {
+            double maxLoadNode = _structure.MaxNodeLoad;
+            double avrgLength = _structure.AverageLength;
+
+            foreach (Node3Dof n in _structure.GetNode3dofs())
+            {
+                double[] loadM = n.LoadFromMass;
+                double[] loadS = n.LoadFromSurface;
+                double[] load = new double[3] { 0, 0, 0 };
+
+                load[0] = loadM[0] + loadS[0];
+                load[1] = loadM[1] + loadS[1];
+                load[2] = loadM[2] + loadS[2];
+
+                double loadMag = Math.Sqrt(load[0] * load[0] + load[1] * load[1] + load[2] * load[2]);
+
+                double fraction = loadMag / maxLoadNode;
+                double sf = fraction * avrgLength;
+
+                Vector3d vec = _p.GravityVector + _p.SurfaceLoadVector;
+                vec.Unitize();               
+                e.Display.DrawArrow(new Line(n.Point, sf * vec), System.Drawing.Color.Azure);
+            }
+        }
+
+
+        public void DrawNodeTS(DrawEventArgs e)
+        {
+            foreach (Node6Dof n in _structure.GetNode6dofs())
+            {
+                double[] nts = n.TranslationalStiffness;
+                double ntsMag = Math.Sqrt(nts[0] * nts[0] + nts[1] * nts[1] + nts[2] * nts[2]);
+                e.Display.DrawDot(n.Point, Math.Round(ntsMag,0).ToString());
+            }
+        }
+
+        public void DrawNodeRS(DrawEventArgs e)
+        {
+            foreach (Node6Dof n in _structure.GetNode6dofs())
+            {
+                double[] nrs = n.RotationalStiffness;
+                double nrsMag = Math.Sqrt(nrs[0] * nrs[0] + nrs[1] * nrs[1] + nrs[2] * nrs[2]);
+                e.Display.DrawDot(n.Point, Math.Round(nrsMag, 0).ToString());
+            }
+        }
+
+        public void DrawElementTS(DrawEventArgs e)
+        {
+            foreach (Beam b in _structure.GetBeams())
+            {
+                double[] bts = b.TransStiffness;
+                double btsMag = Math.Sqrt(bts[0] * bts[0] + bts[1] * bts[1] + bts[2] * bts[2]);
+                e.Display.DrawDot(b.MidPoint, Math.Round(btsMag, 0).ToString());
+            }
+        }
+
+        public void DrawElementRS(DrawEventArgs e)
+        {
+            foreach (Beam b in _structure.GetBeams())
+            {
+                double[] brs = b.RotationalStiffness;
+                double brsMag = Math.Sqrt(brs[0] * brs[0] + brs[1] * brs[1] + brs[2] * brs[2]);
+                e.Display.DrawDot(b.MidPoint, Math.Round(brsMag, 0).ToString());
+            }
+        }
+
 
         public void Debug3(DrawEventArgs e) 
         {
             foreach (SplineB b in _structure.GetSplineBars())
             {
-                double sf = 0.000003;
-                double sf2 = 0.000003;
+                //double sf = 0.000003;
+                //double sf2 = 0.000003;
 
                 Point3d pt1 = (b.GetStart().Point + b.MidPoint) / 2;
                 Point3d pt2 = (b.GetEnd().Point + b.MidPoint) / 2;
