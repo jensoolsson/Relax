@@ -6,6 +6,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.rhl
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -201,3 +202,7 @@ Foster.UnitySignalr/Assets/Scenes/
 .idea/.idea.Foster.Signalr/.idea/.name
 .idea/
 *.3dmbak
+
+# macOS / local artefacts
+.DS_Store
+Relax.zip

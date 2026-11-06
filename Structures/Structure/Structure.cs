@@ -1034,7 +1034,7 @@ namespace Structures
         public void CalcMaxMinLoadPerNode()
         {
             double maxLoadPerNode = 0;
-            double minLoadPerNode = 0;
+            double minLoadPerNode = double.MaxValue;
 
             foreach (Node3Dof n in GetNode3dofs())
             {
@@ -1054,6 +1054,9 @@ namespace Structures
                 if (loadMag < minLoadPerNode)
                     minLoadPerNode = loadMag;
             }
+            if (minLoadPerNode == double.MaxValue)     //No nodes
+                minLoadPerNode = 0;
+
             _maxNodeLoad = maxLoadPerNode;
             _minNodeLoad = minLoadPerNode;
         }
@@ -1089,14 +1092,13 @@ namespace Structures
 
         public void Rewind() 
         {
-            //foreach (Node3Dof n in _vertices) 
-            //    n.Rewind();
+            //Rewind is virtual, so each node and element type rewinds its own state.
+            //Bar and cable models have Node3Dof vertices, so these must not be cast to Node6Dof.
+            foreach (Vertex v in _vertices)
+                v.Rewind();
 
-            foreach (Node6Dof n in _vertices)
-                n.Rewind();
-
-            foreach (Bar b in _edges)
-                b.Rewind();
+            foreach (Edge e in _edges)
+                e.Rewind();
         }
 
         public void PostProcess(Parameters p)

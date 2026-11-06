@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Geometry;
 using Rhino.Input;
 using Rhino.Input.Custom;
+using Rhino.UI;
 
 namespace RH_Structures
 {
@@ -32,14 +33,8 @@ namespace RH_Structures
         }
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
-
         {
-            // TODO: start here modifying the behaviour of your command.
-
-            Dialog dlg = new Dialog();
-            dlg.Show();
-
-
+            Panels.OpenPanel(StructuresPanel.PanelId);
 
             return Result.Success;
         }

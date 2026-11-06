@@ -80,6 +80,7 @@ namespace Structures
             _stabilityLimitTrans = 0;
 
             _transStiffness = new double[3] { 0, 0, 0 };
+            _prevForce = new double[3] { 0, 0, 0 };
         }
 
         
@@ -448,8 +449,8 @@ namespace Structures
             if (_constraint != eConstraint.Free)
                 return;
 
-            //Storing the previous force for visualization.
-            _prevForce = _tF;
+            //Storing the previous force for visualization (copy, _tF is updated in place below).
+            Array.Copy(_tF, _prevForce, 3);
 
             _tF[0] = _iF[0] + loadSF * surfaceLoadMagnitude * _loadFromSurface[0] + _sbF[0] + _stF[0];
             _tF[1] = _iF[1] + loadSF * surfaceLoadMagnitude * _loadFromSurface[1] + _sbF[1] + _stF[1];

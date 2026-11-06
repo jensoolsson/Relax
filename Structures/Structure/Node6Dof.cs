@@ -312,8 +312,8 @@ namespace Structures
             if (_constraint == eConstraint.Fixed)
                 return;
 
-            //Storing the previous moment for visualization.
-            _pM = _tM;
+            //Storing the previous moment for visualization (copy, _tM is updated in place).
+            Array.Copy(_tM, _pM, 3);
 
             //Calculate angular acceleration
             _angAcc[0] = _tM[0] / _moi[0];
@@ -344,7 +344,8 @@ namespace Structures
         */
         private void RotateCS()
         {
-            if (_rot[0] + _rot[1] + _rot[2] == 0)
+            //Each component must be checked; e.g. (0.1, -0.1, 0) sums to zero but is a real rotation.
+            if (_rot[0] == 0 && _rot[1] == 0 && _rot[2] == 0)
                 return;
 
             Vector3d x = new Vector3d(1, 0, 0);

@@ -1,0 +1,7 @@
+# Keep existing CRLF text files as-is; only mark binaries.
+*.3dm binary
+*.3dmbak binary
+*.gh binary
+*.zip binary
+*.png binary
+*.ico binary

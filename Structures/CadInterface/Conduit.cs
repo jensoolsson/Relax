@@ -43,20 +43,30 @@ namespace Structures
 
         protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e)
         {
-            if (_structure.IsDrawable)
+            if (!_structure.IsDrawable)
+                return;
+
+            Main.mutex.WaitOne();
+            try
             {
                 _structure.CalcBoundingBox();
                 e.BoundingBox.Union(_structure.GetBoundingBox());
+            }
+            finally
+            {
+                Main.mutex.ReleaseMutex();
             }
         }
 
         protected override void PreDrawObjects(DrawEventArgs e)
         {
-            Main.mutex.WaitOne();
-
             base.PreDrawObjects(e);
 
-            if (_structure.IsDrawable)
+            if (!_structure.IsDrawable)
+                return;
+
+            Main.mutex.WaitOne();
+            try
             {
                 if (_p.DrawVertexNormals)
                     DrawVertexNormals(e);
@@ -131,13 +141,18 @@ namespace Structures
 
                 //Debug6(e);
             }
-
-            Main.mutex.ReleaseMutex();
+            finally
+            {
+                Main.mutex.ReleaseMutex();
+            }
         }
 
-        public void Update() 
+        /** Redraw the views. Safe to call from any thread; the redraw itself runs on the UI thread.
+        *
+        */
+        public void Update()
         {
-            Rhino.RhinoDoc.ActiveDoc.Views.ActiveView.Redraw();
+            RhinoApp.InvokeOnUiThread(new Action(() => Rhino.RhinoDoc.ActiveDoc?.Views.Redraw()));
         }
 
 

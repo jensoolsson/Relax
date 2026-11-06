@@ -719,13 +719,13 @@ namespace Structures
                     return true;
                 else
                 {
-                    Rhino.UI.Dialogs.ShowMessageBox("Value must not be less than " + min + " or bigger than " + max, "Error message");
+                    Rhino.UI.Dialogs.ShowMessage("Value must not be less than " + min + " or bigger than " + max, "Error message");
                     return false;
                 }
             }
             else
             {
-                Rhino.UI.Dialogs.ShowMessageBox("Invalid input", "Error message");
+                Rhino.UI.Dialogs.ShowMessage("Invalid input", "Error message");
                 return false;
             }
         }

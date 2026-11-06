@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,19 +12,18 @@ using Rhino.DocObjects;
 
 namespace Structures
 {
-    public class Main
+    public class Main : IDisposable
     {
-        public static Mutex mutex;
+        public static Mutex mutex = new Mutex();
+
+        private const int PreviewIntervalMs = 40;
+        private const int StopTimeoutMs = 5000;
 
         protected bool _sizing;
-        protected bool _dr;
-        protected bool _matrix;
         protected int _sizingCounter;
         protected int _sizingLimit;
         protected int _drCounter;
         protected int _drLimit;
-        protected eState _state;
-        protected bool _isDarwable;
 
         protected Structure _structure;
         protected AnalysisEngine _analysisEngine;
@@ -32,39 +31,36 @@ namespace Structures
         protected Parameters _p;
 
         protected Thread _analysisThread;
-        protected Thread _drawingThread;
+        protected volatile bool _stopRequested;     //Set from the UI thread, polled by the analysis thread.
 
-        protected System.Windows.Forms.Timer _previewTimer;
+        protected System.Threading.Timer _previewTimer;
+        private int _previewBusy;                   //1 while a preview tick is running, so ticks never overlap.
+        private volatile bool _refreshRequested;    //One-off preview update requested by the UI.
+        private bool _disposed;
 
         //-------------------- Constructor and Initialisation functions --------------------//
         #region
 
-        public void Initialise() 
+        public void Initialise()
         {
             _sizing = false;
-            _dr = false;
-            _matrix = false;
             _sizingCounter = 0;
             _sizingLimit = 10;
             _drCounter = 0;
             _drLimit = 5000;
-            _state = eState.NotReady;
-            _isDarwable = false;
-
-            mutex = new Mutex();
-            
+            _stopRequested = false;
+            _refreshRequested = false;
         }
 
-        public void InitialiseTimer() 
+        /** The preview timer runs for the lifetime of Main, but only rebuilds geometry while an
+        *   analysis is running or when a refresh has been requested (see UpdatePreviewTimer_Tick).
+        */
+        public void InitialiseTimer()
         {
-            _previewTimer = new System.Windows.Forms.Timer();
-            _previewTimer.Interval = 40;
-            _previewTimer.Tick += new System.EventHandler(this.UpdatePreviewTimer_Tick);
-            _previewTimer.Start();
+            _previewTimer = new System.Threading.Timer(UpdatePreviewTimer_Tick, null, PreviewIntervalMs, PreviewIntervalMs);
         }
 
-
-        public Main() 
+        public Main()
         {
             Initialise();
             InitialiseTimer();
@@ -73,26 +69,28 @@ namespace Structures
         public Main(Parameters p)
         {
             Initialise();
-            InitialiseTimer();
-            
+
             _p = p;
             _structure = new Structure();
             _analysisEngine = new AnalysisEngine(_structure);
             _conduit = new Conduit(_structure, _p);
             _conduit.Enabled = true;
+
+            InitialiseTimer();
         }
 
-        //Constructor when used as library, or as GH component.
+        //Constructor when used as library.
         public Main(Structure structure, Parameters p)
         {
             Initialise();
-            //InitialiseTimer();
 
             _p = p;
             _structure = structure;
             _analysisEngine = new AnalysisEngine(structure);
             _conduit = new Conduit(structure, p);
             _conduit.Enabled = true;
+
+            InitialiseTimer();
         }
 
         #endregion
@@ -102,35 +100,42 @@ namespace Structures
         //---------------------------------- Properties ------------------------------------//
         #region
 
-        public Structure Structure 
+        public Structure Structure
         {
             get { return _structure; }
-            set 
-            { 
+            set
+            {
                 _structure = value;
                 _analysisEngine.Structure = value;
                 _conduit.Structure = value;
             }
         }
 
-        public Parameters Parameters 
+        public Parameters Parameters
         {
             get { return _p; }
-            set 
-            { 
+            set
+            {
                 _p = value;
                 _conduit.Parameters = value;
             }
         }
 
-        public void EnableDrawing() 
+        public bool IsRunning
+        {
+            get { return _analysisThread != null && _analysisThread.IsAlive; }
+        }
+
+        public void EnableDrawing()
         {
             _conduit.Enabled = true;
+            RequestRefresh();
         }
 
         public void DisableDrawing()
         {
             _conduit.Enabled = false;
+            _conduit.Update();
         }
 
         #endregion
@@ -142,45 +147,69 @@ namespace Structures
 
         public void CreateObjects(List<RhinoObject> lines, List<RhinoObject> pts)
         {
-            switch (_p.ElementType)
+            StopThread();
+
+            //The structure becomes drawable part way through, so keep the preview out until it is complete.
+            mutex.WaitOne();
+            try
             {
-                case eElementType.Beam:
-                    _structure.CreateBeamsFromLines(lines);
-                    break;
-                case eElementType.Bar:
-                    _structure.CreateBarsFromLines(lines);
-                    break;
-                case eElementType.Cable:
-                    _structure.CreateCablesFromLines(lines);
-                    break;
-                case eElementType.SplineB:
-                    _structure.CreateBSplinesFromLines(lines);
-                    break;
-                case eElementType.SplineBT:
-                    _structure.CreateBTSplinesFromLines(lines);
-                    break;
+                switch (_p.ElementType)
+                {
+                    case eElementType.Beam:
+                        _structure.CreateBeamsFromLines(lines);
+                        break;
+                    case eElementType.Bar:
+                        _structure.CreateBarsFromLines(lines);
+                        break;
+                    case eElementType.Cable:
+                        _structure.CreateCablesFromLines(lines);
+                        break;
+                    case eElementType.SplineB:
+                        _structure.CreateBSplinesFromLines(lines);
+                        break;
+                    case eElementType.SplineBT:
+                        _structure.CreateBTSplinesFromLines(lines);
+                        break;
+                }
+
+                _structure.CreateConstraintObjects(pts);
+
+                _structure.AssignConstPtsToVertices();
+
+                _structure.PreprocessGeometry1();
+
+                _structure.CreateFacesFromEdges();
+
+                _structure.PreprocessGeometry2();
+
+                _structure.PreprocessStructure(_p);
+
+                _analysisEngine.Preprocess(_p);
+            }
+            finally
+            {
+                mutex.ReleaseMutex();
             }
 
-            _structure.CreateConstraintObjects(pts);
-
-            _structure.AssignConstPtsToVertices();
-            
-            _structure.PreprocessGeometry1();
-
-            _structure.CreateFacesFromEdges();
-
-            _structure.PreprocessGeometry2();
-
-            _structure.PreprocessStructure(_p);
-
-            _analysisEngine.Preprocess(_p);
+            RequestRefresh();
         }
 
-        public void Rewind() 
+        public void Rewind()
         {
+            StopThread();
+
             mutex.WaitOne();
-            _structure.Rewind();
-            mutex.ReleaseMutex();
+            try
+            {
+                _structure.Rewind();
+            }
+            finally
+            {
+                mutex.ReleaseMutex();
+            }
+            _drCounter = 0;
+            _sizingCounter = 0;
+            RequestRefresh();
         }
 
         #endregion
@@ -192,103 +221,116 @@ namespace Structures
 
         public void RunDR()
         {
-            _state = eState.Ready;
-
-            switch (_state)
-            {
-                case eState.Ready:
-                    _analysisThread = new Thread(DR_Thread);
-                    _analysisThread.Start();
-                    break;
-
-                default:
-                    break;
-            }
+            StartThread(DR_Thread);
         }
 
+        /** Runs DR until stopped, so that loads can be changed from the UI while it runs.
+        *
+        */
         private void DR_Thread()
         {
             _drCounter = 0;
-            bool converged = false;
+            bool reportedConvergence = false;
             _analysisEngine.CalcConvergenceForce(_p);
 
-            while (true) //(!converged)
+            while (!_stopRequested)
             {
+                bool converged;
+
+                mutex.WaitOne();
                 try
                 {
-                    mutex.WaitOne();
                     _analysisEngine.RunDR(_p);
                     converged = _analysisEngine.IsConverged_DR;
-                    mutex.ReleaseMutex();
-                    _drCounter++;
                 }
                 catch (Exception e)
                 {
-                    Rhino.RhinoApp.WriteLine(e.Message);
+                    WriteLine("DR stopped after an error: " + e.Message);
+                    return;
+                }
+                finally
+                {
+                    mutex.ReleaseMutex();
+                }
+                _drCounter++;
+
+                if (converged && !reportedConvergence)
+                {
+                    WriteLine("DR Converged at iteration: " + _drCounter.ToString());
+                    reportedConvergence = true;
                 }
             }
-            RhinoApp.WriteLine("DR Converged at iteration: " + _drCounter.ToString());
         }
 
         public void RunSizing()
         {
-            _state = eState.Ready;
-
-            switch (_state)
-            {
-                case eState.Ready:
-                    _analysisThread = new Thread(Sizing_Thread);
-                    _analysisThread.Start();
-                    break;
-
-                default:
-                    break;
-            }
+            StartThread(Sizing_Thread);
         }
 
         private void Sizing_Thread()
         {
-            bool converged = false;
             _sizing = true;
             _sizingCounter = 0;
             _analysisEngine.CalcConvergenceForce(_p);
 
-            while (_sizing && _sizingCounter < _sizingLimit)
+            try
             {
-                _drCounter = 0;
-                converged = false;
-
-                while (!converged && _drCounter < _drLimit)
+                while (!_stopRequested && _sizingCounter < _sizingLimit)
                 {
+                    _drCounter = 0;
+                    bool converged = false;
+
+                    while (!_stopRequested && !converged && _drCounter < _drLimit)
+                    {
+                        mutex.WaitOne();
+                        try
+                        {
+                            _analysisEngine.RunDR(_p);
+                            converged = _analysisEngine.IsConverged_Sizing;
+                        }
+                        finally
+                        {
+                            mutex.ReleaseMutex();
+                        }
+                        _drCounter++;
+                    }
+
+                    if (_stopRequested)
+                        break;
+
+                    WriteLine("DR in sizing loop converged at iteration: " + _drCounter.ToString());
+
                     mutex.WaitOne();
-                    _analysisEngine.RunDR(_p);
-                    converged = _analysisEngine.IsConverged_Sizing;
-                    mutex.ReleaseMutex();
-                    _drCounter++;
+                    try
+                    {
+                        _analysisEngine.RunSizing(_p);
+                    }
+                    finally
+                    {
+                        mutex.ReleaseMutex();
+                    }
+                    _sizingCounter++;
                 }
-
-                RhinoApp.WriteLine("DR in sizing loop converged at iteration: " + _drCounter.ToString());
-                mutex.WaitOne();
-                _analysisEngine.RunSizing(_p);
-                mutex.ReleaseMutex();
-                _sizingCounter++;
+                WriteLine(_stopRequested ? "Sizing stopped" : "Sizing done");
             }
-            RhinoApp.WriteLine("Sizing done");
-            _sizing = false;
+            catch (Exception e)
+            {
+                WriteLine("Sizing stopped after an error: " + e.Message);
+            }
+            finally
+            {
+                _sizing = false;
+            }
         }
 
-        public void StopDR() 
+        public void StopDR()
         {
-            _dr = false;
             StopThread();
-            _previewTimer.Stop();
         }
 
-        public void StopSizing() 
+        public void StopSizing()
         {
-            _sizing = false;
             StopThread();
-            _previewTimer.Stop();
         }
 
         #endregion
@@ -298,43 +340,64 @@ namespace Structures
         //----------------------------------- Drawing --------------------------------------//
         #region
 
-        private void UpdatePreviewTimer_Tick(object sender, EventArgs e)
+        /** Ask for one preview update, e.g. after the geometry or a draw setting changed while
+        *   no analysis is running.
+        */
+        public void RequestRefresh()
+        {
+            _refreshRequested = true;
+        }
+
+        private void UpdatePreviewTimer_Tick(object state)
         {
             if (_structure == null) { return; }
 
-            if (_drawingThread == null || !_drawingThread.IsAlive)
+            if (!IsRunning && !_refreshRequested) { return; }
+
+            //Skip this tick if the previous one is still updating the geometry.
+            if (Interlocked.Exchange(ref _previewBusy, 1) == 1) { return; }
+
+            try
             {
-                _drawingThread = new Thread(UpdateGeometry);
-                _drawingThread.Start();
+                _refreshRequested = false;
+                UpdateGeometry();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _previewBusy, 0);
             }
         }
 
         private void UpdateGeometry()
         {
-            if (_structure.IsDrawable)
+            if (!_structure.IsDrawable)
+                return;
+
+            try
             {
+                mutex.WaitOne();
                 try
                 {
-                    mutex.WaitOne();
                     _structure.UpdateGeometry(_p);
-                    mutex.ReleaseMutex();
 
                     //Feed values back from calculations to the UI.
-                    mutex.WaitOne();
                     _p.OutOfBalanceForce = _analysisEngine.OutOfBalanceForce;
                     _p.OutOfBalanceMoment = _analysisEngine.OutOfBalanceMoment;
                     _p.ConvergenceForce = _analysisEngine.ConvergenceForce;
                     _p.StructuralWeight = _structure.StructuralWeight;
                     _p.DRCounter = _drCounter;
                     _p.SizingCounter = _sizingCounter;
-                    mutex.ReleaseMutex();
-
-                    _conduit.Update();
                 }
-                catch (Exception e)
+                finally
                 {
-                    Rhino.RhinoApp.WriteLine(e.Message);
+                    mutex.ReleaseMutex();
                 }
+
+                _conduit.Update();
+            }
+            catch (Exception e)
+            {
+                WriteLine(e.Message);
             }
         }
 
@@ -345,11 +408,56 @@ namespace Structures
         //---------------------------------- Threading --------------------------------------//
         #region
 
+        private void StartThread(ThreadStart work)
+        {
+            StopThread();
+
+            _stopRequested = false;
+            _analysisThread = new Thread(work);
+            _analysisThread.IsBackground = true;    //Never keep Rhino alive on exit.
+            _analysisThread.Start();
+        }
+
+        /** Ask the analysis thread to finish its current iteration and wait for it.
+        *
+        */
         public void StopThread()
         {
-            if (_analysisThread != null)
-                if (_analysisThread.Join(300))
-                    _analysisThread.Abort();
+            if (_analysisThread == null)
+                return;
+
+            _stopRequested = true;
+
+            if (!_analysisThread.Join(StopTimeoutMs))
+                WriteLine("Analysis thread did not stop within " + (StopTimeoutMs / 1000).ToString() + " s");
+            else
+                _analysisThread = null;
+
+            //Show the final state of the stopped analysis.
+            RequestRefresh();
+        }
+
+        /** Write to the Rhino command line from any thread.
+        *
+        */
+        private static void WriteLine(string message)
+        {
+            RhinoApp.InvokeOnUiThread(new Action(() => RhinoApp.WriteLine(message)));
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            StopThread();
+
+            if (_previewTimer != null)
+                _previewTimer.Dispose();
+
+            if (_conduit != null)
+                DisableDrawing();
         }
 
         #endregion
@@ -369,6 +477,7 @@ namespace Structures
         public void UpdateLoad()
         {
             _analysisEngine.UpdateLoad(_p);
+            RequestRefresh();
         }
 
 

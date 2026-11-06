@@ -24,7 +24,7 @@ using Rhino.PlugIns;
 [assembly: AssemblyTitle("RH_Structures")]
 
 // This will be used also for the plug-in description.
-[assembly: AssemblyDescription("Rhino 5 plugin for structural analysis based on a DR solver")]
+[assembly: AssemblyDescription("Rhino 8 plugin for structural analysis based on a DR solver")]
 
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]

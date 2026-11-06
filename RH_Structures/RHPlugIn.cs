@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Geometry;
 using Rhino.Input;
 using Rhino.Input.Custom;
+using Rhino.PlugIns;
+using Rhino.UI;
 
 namespace RH_Structures
 {
@@ -18,13 +20,13 @@ namespace RH_Structures
     ///</summary>
     public class RHStructuresPlugIn : Rhino.PlugIns.PlugIn
     {
-        
+        private const string PanelIconResource = "RH_Structures.Resources.Relax.png";
+
+        private RelaxSession _session;
+
         public RHStructuresPlugIn()
         {
             Instance = this;
-
-            //Dialog dlg = new Dialog();
-            //dlg.Show();
         }
 
         ///<summary>Gets the only instance of the RhinoPluginTemplatePlugIn plug-in.</summary>
@@ -33,14 +35,48 @@ namespace RH_Structures
             get; private set;
         }
 
-        // You can override methods here to change the plug-in behavior on
-        // loading and shut down, add options pages to the Rhino _Option command
-        // and maintain plug-in wide options in a document.
-        
+        ///<summary>Analysis state shared by the panel and the commands.</summary>
+        public RelaxSession Session
+        {
+            get
+            {
+                if (_session == null)
+                    _session = new RelaxSession();
+                return _session;
+            }
+        }
 
+        //Load at start-up so a docked Relax panel can be restored.
+        public override PlugInLoadTime LoadTime
+        {
+            get { return PlugInLoadTime.AtStartup; }
+        }
 
+        protected override LoadReturnCode OnLoad(ref string errorMessage)
+        {
+            Panels.RegisterPanel(this, typeof(StructuresPanel), "Relax", GetType().Assembly, PanelIconResource, PanelType.System);
 
+            RhinoDoc.CloseDocument += OnCloseDocument;
 
+            return LoadReturnCode.Success;
+        }
 
+        protected override void OnShutdown()
+        {
+            RhinoDoc.CloseDocument -= OnCloseDocument;
+
+            if (_session != null)
+                _session.Dispose();
+            _session = null;
+
+            base.OnShutdown();
+        }
+
+        //Do not keep relaxing a model whose document has been closed.
+        private void OnCloseDocument(object sender, DocumentEventArgs e)
+        {
+            if (_session != null)
+                _session.Stop();
+        }
     }
 }
